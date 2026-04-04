@@ -26,42 +26,43 @@ fun AboutScreen() {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FluentCard(modifier = Modifier.clickable { openUrl("https://github.com/TerminalExplore") }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Person, null, tint = AccentLight)
+                Spacer(Modifier.width(12.dp))
+                Column { 
+                    Text("Fork by TerminalExplore", color = TextPrimary) 
+                    Text("Zapret2 Plus - Magisk Module", fontSize = 12.sp, color = TextSecondary) 
+                }
+            }
+        }
+
         FluentCard {
-            Text("Zapret2", fontSize = 20.sp, color = TextPrimary)
+            Text("Zapret2 Plus", fontSize = 20.sp, color = TextPrimary)
             Text("v${BuildConfig.VERSION_NAME}", fontSize = 14.sp, color = TextSecondary)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("DPI bypass module for Android with Magisk", fontSize = 13.sp, color = TextTertiary)
+            Text("DPI bypass with auto-switch WiFi/Mobile, VPN support, and app filtering", fontSize = 13.sp, color = TextTertiary)
         }
 
-        FluentCard(modifier = Modifier.clickable { openUrl("https://t.me/bypassblock") }) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Groups, null, tint = TelegramBlue)
-                Spacer(Modifier.width(12.dp))
-                Column { Text("Telegram Group", color = TextPrimary); Text("@bypassblock", fontSize = 12.sp, color = TextSecondary) }
-            }
-        }
-
-        FluentCard(modifier = Modifier.clickable { openUrl("https://t.me/zapretvpns_bot") }) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.VpnKey, null, tint = AccentLightBlue)
-                Spacer(Modifier.width(12.dp))
-                Column { Text("VPN Bot", color = TextPrimary); Text("@zapretvpns_bot", fontSize = 12.sp, color = TextSecondary) }
-            }
-        }
-
-        FluentCard(modifier = Modifier.clickable { openUrl("https://github.com/bol-van/zapret") }) {
+        FluentCard(modifier = Modifier.clickable { openUrl("https://github.com/bol-van/zapret2") }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Code, null, tint = GithubWhite)
                 Spacer(Modifier.width(12.dp))
-                Column { Text("bol-van/zapret", color = TextPrimary); Text("Original project", fontSize = 12.sp, color = TextSecondary) }
+                Column { 
+                    Text("bol-van/zapret2", color = TextPrimary) 
+                    Text("Original project", fontSize = 12.sp, color = TextSecondary) 
+                }
             }
         }
 
-        FluentCard(modifier = Modifier.clickable { openUrl("https://github.com/youtubediscord") }) {
+        FluentCard(modifier = Modifier.clickable { openUrl("https://github.com/youtubediscord/magisk-zapret2") }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Code, null, tint = AccentLightBlue)
                 Spacer(Modifier.width(12.dp))
-                Column { Text("youtubediscord", color = TextPrimary); Text("Android module maintainer", fontSize = 12.sp, color = TextSecondary) }
+                Column { 
+                    Text("youtubediscord/magisk-zapret2", color = TextPrimary) 
+                    Text("Android module", fontSize = 12.sp, color = TextSecondary) 
+                }
             }
         }
     }

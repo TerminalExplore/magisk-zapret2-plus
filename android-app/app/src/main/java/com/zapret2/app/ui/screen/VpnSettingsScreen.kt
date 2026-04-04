@@ -33,6 +33,8 @@ fun VpnSettingsScreen(
     var vpnStatus by remember { mutableStateOf("Stopped") }
     var servers by remember { mutableStateOf<List<ServerInfo>>(emptyList()) }
     var isPinging by remember { mutableStateOf(false) }
+    var pingMethod by remember { mutableStateOf("tcp") }
+    var pingTimeout by remember { mutableStateOf(3) }
 
     LaunchedEffect(Unit) {
         scope.launch(Dispatchers.IO) {
@@ -42,6 +44,10 @@ fun VpnSettingsScreen(
             )
             checkVpnStatus { vpnStatus = it }
             loadServers { servers = it }
+            loadPingSettings(
+                onPingMethodLoaded = { pingMethod = it },
+                onPingTimeoutLoaded = { pingTimeout = it }
+            )
         }
     }
 
@@ -248,6 +254,70 @@ fun VpnSettingsScreen(
                         ServerItem(server = server, index = index)
                         if (index < servers.size - 1) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                    }
+                }
+            }
+        }
+
+        FluentCard {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Ping Settings",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text("Method", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = pingMethod == "icmp",
+                        onClick = { 
+                            pingMethod = "icmp"
+                            scope.launch(Dispatchers.IO) { savePingMethod("icmp") }
+                        },
+                        label = { Text("ICMP") }
+                    )
+                    FilterChip(
+                        selected = pingMethod == "tcp",
+                        onClick = { 
+                            pingMethod = "tcp"
+                            scope.launch(Dispatchers.IO) { savePingMethod("tcp") }
+                        },
+                        label = { Text("TCP") }
+                    )
+                    FilterChip(
+                        selected = pingMethod == "proxy",
+                        onClick = { 
+                            pingMethod = "proxy"
+                            scope.launch(Dispatchers.IO) { savePingMethod("proxy") }
+                        },
+                        label = { Text("Proxy") }
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Timeout", style = MaterialTheme.typography.bodyMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { if (pingTimeout > 1) pingTimeout-- }) {
+                            Icon(Icons.Default.Remove, "Decrease")
+                        }
+                        Text("$pingTimeout s", style = MaterialTheme.typography.bodyLarge)
+                        IconButton(onClick = { if (pingTimeout < 10) pingTimeout++ }) {
+                            Icon(Icons.Default.Add, "Increase")
                         }
                     }
                 }
@@ -550,4 +620,32 @@ private fun pingServer(address: String, port: Int): Int? {
     } catch (e: Exception) {
         null
     }
+}
+
+private suspend fun loadPingSettings(
+    onPingMethodLoaded: (String) -> Unit,
+    onPingTimeoutLoaded: (Int) -> Unit
+) {
+    withContext(Dispatchers.IO) {
+        val result = Shell.cmd(
+            "cat /data/adb/modules/zapret2/zapret2/vpn-config.env 2>/dev/null"
+        ).exec()
+
+        if (result.isSuccess) {
+            val content = result.out.joinToString("\n")
+            
+            val pingMethodMatch = Regex("PING_METHOD=\"([^\"]+)\"").find(content)
+            onPingMethodLoaded(pingMethodMatch?.groupValues?.get(1) ?: "tcp")
+            
+            val pingTimeoutMatch = Regex("PING_TIMEOUT=(\\d+)").find(content)
+            onPingTimeoutLoaded(pingTimeoutMatch?.groupValues?.get(1)?.toIntOrNull() ?: 3)
+        }
+    }
+}
+
+private fun savePingMethod(method: String) {
+    Shell.cmd(
+        "sed -i 's/PING_METHOD=\"[^\"]*\"/PING_METHOD=\"$method\"/' " +
+        "/data/adb/modules/zapret2/zapret2/vpn-config.env 2>/dev/null"
+    ).exec()
 }
