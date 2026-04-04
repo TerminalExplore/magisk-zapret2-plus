@@ -82,6 +82,7 @@ parse_singbox_json() {
 import_subscription() {
     local url="$1"
     local out_file="$ZAPRET_DIR/vpn-config.json"
+    local xray_file="$ZAPRET_DIR/xray-config.json"
     
     log "Importing subscription from: $url"
     
@@ -108,15 +109,25 @@ import_subscription() {
     if echo "$content" | grep -q '^{'; then
         log "Detected JSON format"
         echo "$content" > "$out_file"
+        echo "$content" > "$xray_file"
         
         if echo "$content" | grep -q '"type": "vless"'; then
             log "Detected VLESS protocol"
         fi
+    elif echo "$content" | grep -q 'vless://'; then
+        log "Detected VLESS URIs - generating Xray config"
+        echo "$content" > "$ZAPRET_DIR/vpn-subs-raw.txt"
+        
+        local first_uri=$(echo "$content" | grep -o 'vless://[^[:space:]]*' | head -1)
+        if [ -n "$first_uri" ]; then
+            generate_xray_config "$first_uri"
+            cp "$ZAPRET_DIR/xray-config.json" "$out_file"
+        fi
     elif echo "$content" | grep -q 'vmess://'; then
         log "Detected VMess URIs"
         echo "$content" > "$ZAPRET_DIR/vpn-subs-raw.txt"
-    elif echo "$content" | grep -q 'vless://'; then
-        log "Detected VLESS URIs"
+    elif echo "$content" | grep -q 'ss://'; then
+        log "Detected ShadowSocks URIs"
         echo "$content" > "$ZAPRET_DIR/vpn-subs-raw.txt"
     else
         log "Unknown format, saving raw"
@@ -285,10 +296,13 @@ apply_vless() {
     
     log "Applying VLESS URI..."
     
-    if [[ "$uri" == vless://* ]]; then
-        generate_xray_config "$uri"
-        return 0
-    fi
+    case "$uri" in
+        vless://*)
+            generate_xray_config "$uri"
+            cp "$ZAPRET_DIR/xray-config.json" "$ZAPRET_DIR/vpn-config.json"
+            return 0
+            ;;
+    esac
     
     log "Invalid VLESS URI"
     return 1

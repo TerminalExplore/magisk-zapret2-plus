@@ -34,11 +34,14 @@ load_config() {
 
 check_binary() {
     local binary=""
+    local arch=$(uname -m)
     
     if [ -f "$ZAPRET_DIR/xray" ]; then
         binary="$ZAPRET_DIR/xray"
-    elif [ -f "$ZAPRET_DIR/bin/xray" ]; then
-        binary="$ZAPRET_DIR/bin/xray"
+    elif [ -f "$ZAPRET_DIR/bin/arm64-v8a/xray" ]; then
+        binary="$ZAPRET_DIR/bin/arm64-v8a/xray"
+    elif [ -f "$ZAPRET_DIR/bin/armeabi-v7a/xray" ]; then
+        binary="$ZAPRET_DIR/bin/armeabi-v7a/xray"
     elif command -v xray >/dev/null 2>&1; then
         binary="xray"
     fi
@@ -52,6 +55,7 @@ check_binary() {
         chmod 755 "$binary" 2>/dev/null
     fi
     
+    log "Using binary: $binary"
     echo "$binary"
 }
 

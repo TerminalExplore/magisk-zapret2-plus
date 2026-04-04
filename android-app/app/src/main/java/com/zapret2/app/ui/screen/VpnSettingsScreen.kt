@@ -325,8 +325,16 @@ private suspend fun applyVlessConfig(config: String): Boolean {
             .replace("\n", "\\n")
         
         val result = Shell.cmd(
-            "echo '$escaped' | su -c 'base64 -d > /data/adb/modules/zapret2/zapret2/vpn-config.json' 2>/dev/null"
+            "echo '$escaped' | su -c 'base64 -d > /data/adb/modules/zapret2/zapret2/vpn-config.json 2>/dev/null' && " +
+            "cp /data/adb/modules/zapret2/zapret2/vpn-config.json /data/adb/modules/zapret2/zapret2/xray-config.json 2>/dev/null || true"
         ).exec()
+        
+        if (!result.isSuccess) {
+            Shell.cmd(
+                "echo '$config' | su -c '/data/adb/modules/zapret2/zapret2/scripts/subscription-parser.sh vless \"\$1\"' bash \"$config\" 2>/dev/null"
+            ).exec()
+        }
+        
         result.isSuccess
     }
 }

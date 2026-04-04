@@ -61,16 +61,30 @@ fun AppFilterScreen(
             isLoading = true
             val pm = context.packageManager
             
-            val apps = commonApps.mapNotNull { (pkg, name) ->
-                try {
-                    pm.getApplicationInfo(pkg, 0)
-                    AppInfo(pkg, name)
-                } catch (e: Exception) {
-                    null
+            val apps = mutableListOf<AppInfo>()
+            
+            try {
+                val installedPackages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                
+                for (appInfo in installedPackages) {
+                    if (appInfo.packageName.startsWith("com.android.") ||
+                        appInfo.packageName.startsWith("com.google.android.input") ||
+                        appInfo.packageName.startsWith("com.android.launcher")) {
+                        continue
+                    }
+                    
+                    try {
+                        val appName = pm.getApplicationLabel(appInfo).toString()
+                        apps.add(AppInfo(appInfo.packageName, appName))
+                    } catch (e: Exception) {
+                        apps.add(AppInfo(appInfo.packageName, appInfo.packageName))
+                    }
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
             
-            installedApps = apps
+            installedApps = apps.sortedBy { it.appName.lowercase() }
             
             loadSettings(
                 onWifiEnabledLoaded = { wifiEnabled = it },
