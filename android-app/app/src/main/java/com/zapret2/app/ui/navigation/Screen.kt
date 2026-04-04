@@ -14,6 +14,11 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object DnsManager : Screen("dns_manager", "DNS", Icons.Default.Dns)
     object Logs : Screen("logs", "Logs", Icons.Default.Terminal)
     object About : Screen("about", "About", Icons.Default.Info)
+    
+    object AutoSwitch : Screen("auto_switch", "Auto-Switch", Icons.Default.SwapHoriz)
+    object VpnSettings : Screen("vpn_settings", "VPN", Icons.Default.VpnKey)
+    object AppFilter : Screen("app_filter", "App Filter", Icons.Default.Apps)
+    
     object HostlistContent : Screen("hostlist_content/{path}/{name}/{count}", "Hostlist", Icons.Default.List) {
         fun createRoute(path: String, name: String, count: Int): String {
             return "hostlist_content/${java.net.URLEncoder.encode(path, "UTF-8")}/${java.net.URLEncoder.encode(name, "UTF-8")}/$count"
@@ -22,7 +27,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 
     companion object {
         val mainScreens = listOf(Control, Strategies)
-        val configScreens = listOf(Presets, ConfigEditor)
+        val configScreens = listOf(Presets, ConfigEditor, AutoSwitch, VpnSettings, AppFilter)
         val dataScreens = listOf(Hostlists, HostsEditor, DnsManager)
         val systemScreens = listOf(Logs, About)
     }

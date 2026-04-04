@@ -28,6 +28,11 @@ fun AppNavHost(
         composable(Screen.DnsManager.route) { DnsManagerScreen() }
         composable(Screen.Logs.route) { LogsScreen() }
         composable(Screen.About.route) { AboutScreen() }
+        
+        composable(Screen.AutoSwitch.route) { AutoSwitchSettingsScreen(navController::popBackStack) }
+        composable(Screen.VpnSettings.route) { VpnSettingsScreen(navController) }
+        composable(Screen.AppFilter.route) { AppFilterScreen(navController::popBackStack) }
+        
         composable(
             route = Screen.HostlistContent.route,
             arguments = listOf(

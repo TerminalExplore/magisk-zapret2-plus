@@ -80,6 +80,15 @@ else
     ui_print "! Please download from GitHub releases"
 fi
 
+# Copy Xray binary (VPN client)
+if [ -f "$MODPATH/zapret2/bin/$ARCH_DIR/xray" ]; then
+    cp "$MODPATH/zapret2/bin/$ARCH_DIR/xray" "$MODPATH/zapret2/xray"
+    ui_print "- Copied xray binary for $ARCH_DIR"
+else
+    ui_print "! Warning: xray binary not found for $ARCH_DIR"
+    ui_print "! VPN functionality will not be available"
+fi
+
 # Set permissions
 ui_print "- Setting permissions..."
 
@@ -91,10 +100,17 @@ find "$MODPATH" -type f -exec chmod 0644 {} \;
 
 # Set executable permissions for scripts and binary
 set_perm "$MODPATH/zapret2/nfqws2" 0 0 0755
+set_perm "$MODPATH/zapret2/xray" 0 0 0755
 set_perm "$MODPATH/zapret2/scripts/zapret-start.sh" 0 0 0755
 set_perm "$MODPATH/zapret2/scripts/zapret-stop.sh" 0 0 0755
 set_perm "$MODPATH/zapret2/scripts/zapret-restart.sh" 0 0 0755
 set_perm "$MODPATH/zapret2/scripts/zapret-status.sh" 0 0 0755
+set_perm "$MODPATH/zapret2/scripts/network-monitor.sh" 0 0 0755
+set_perm "$MODPATH/zapret2/scripts/vpn-start.sh" 0 0 0755
+set_perm "$MODPATH/zapret2/scripts/vpn-stop.sh" 0 0 0755
+set_perm "$MODPATH/zapret2/scripts/vpn-tunnel.sh" 0 0 0755
+set_perm "$MODPATH/zapret2/scripts/subscription-parser.sh" 0 0 0755
+set_perm "$MODPATH/zapret2/scripts/app-filter.sh" 0 0 0755
 set_perm "$MODPATH/service.sh" 0 0 0755
 set_perm "$MODPATH/uninstall.sh" 0 0 0755
 set_perm "$MODPATH/customize.sh" 0 0 0755
@@ -143,6 +159,10 @@ ln -sf "$MODPATH/zapret2/scripts/zapret-start.sh" "$MODPATH/system/bin/zapret2-s
 ln -sf "$MODPATH/zapret2/scripts/zapret-stop.sh" "$MODPATH/system/bin/zapret2-stop"
 ln -sf "$MODPATH/zapret2/scripts/zapret-restart.sh" "$MODPATH/system/bin/zapret2-restart"
 ln -sf "$MODPATH/zapret2/scripts/zapret-status.sh" "$MODPATH/system/bin/zapret2-status"
+ln -sf "$MODPATH/zapret2/scripts/vpn-start.sh" "$MODPATH/system/bin/zapret2-vpn-start"
+ln -sf "$MODPATH/zapret2/scripts/vpn-stop.sh" "$MODPATH/system/bin/zapret2-vpn-stop"
+ln -sf "$MODPATH/zapret2/scripts/network-monitor.sh" "$MODPATH/system/bin/zapret2-network-monitor"
+ln -sf "$MODPATH/zapret2/scripts/app-filter.sh" "$MODPATH/system/bin/zapret2-app-filter"
 
 ui_print ""
 ui_print "===================================="
@@ -153,14 +173,20 @@ ui_print " WebUI: Install KSUWebUI app"
 ui_print "        and select Zapret2 module"
 ui_print ""
 ui_print " Terminal commands:"
-ui_print "   zapret2-start   - Start"
-ui_print "   zapret2-stop    - Stop"
-ui_print "   zapret2-restart - Restart (fast by default)"
-ui_print "   zapret2-status  - Status"
+ui_print "   zapret2-start          - Start Zapret2"
+ui_print "   zapret2-stop           - Stop Zapret2"
+ui_print "   zapret2-restart        - Restart (fast by default)"
+ui_print "   zapret2-status        - Status"
+ui_print "   zapret2-vpn-start     - Start VPN"
+ui_print "   zapret2-vpn-stop      - Stop VPN"
+ui_print "   zapret2-network-monitor - Start auto-switch"
+ui_print "   zapret2-app-filter     - App filter control"
 ui_print ""
 ui_print " Config files:"
 ui_print "   Runtime:    $MODPATH/zapret2/runtime.ini"
 ui_print "   Categories: $MODPATH/zapret2/categories.ini"
+ui_print "   VPN Config: $MODPATH/zapret2/vpn-config.env"
+ui_print "   App Filter: $MODPATH/zapret2/app-filter.ini"
 ui_print "   TCP:        $MODPATH/zapret2/strategies-tcp.ini"
 ui_print "   UDP:        $MODPATH/zapret2/strategies-udp.ini"
 ui_print "   STUN:       $MODPATH/zapret2/strategies-stun.ini"

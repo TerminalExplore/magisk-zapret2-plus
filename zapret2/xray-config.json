@@ -1,0 +1,93 @@
+{
+  "log": {
+    "loglevel": "warn",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      "8.8.8.8",
+      "1.1.1.1",
+      "8.8.4.4",
+      "1.0.0.1"
+    ]
+  },
+  "inbounds": [
+    {
+      "tag": "tun-in",
+      "protocol": "dokodemo-door",
+      "listen": "0.0.0.0",
+      "listenPacket": "tun0",
+      "settings": {
+        "address": "0.0.0.0",
+        "port": 0,
+        "network": "tcp,udp"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "${VPN_PROTOCOL}",
+      "settings": {
+        "vnext": [
+          {
+            "address": "${VPN_SERVER}",
+            "port": ${VPN_PORT},
+            "users": [
+              {
+                "id": "${VLESS_UUID}",
+                "encryption": "none",
+                "flow": "${VLESS_FLOW}"
+              }
+            ]
+          }
+        ],
+        "servers": [
+          {
+            "address": "${VPN_SERVER}",
+            "port": ${VPN_PORT},
+            "method": "${SS_METHOD}",
+            "password": "${SS_PASSWORD}"
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "${VLESS_SNI}",
+          "allowInsecure": false
+        }
+      }
+    },
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {}
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole",
+      "settings": {}
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "type": "field",
+        "ip": [
+          "geoip:private"
+        ],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "protocol": [
+          "bittorrent"
+        ],
+        "outboundTag": "direct"
+      }
+    ]
+  }
+}

@@ -45,6 +45,11 @@ fi
 ZAPRET_DIR="$MODDIR/zapret2"
 SCRIPT_DIR="$ZAPRET_DIR/scripts"
 
+# Load VPN config for auto-switch mode
+if [ -f "$ZAPRET_DIR/vpn-config.env" ]; then
+    . "$ZAPRET_DIR/vpn-config.env"
+fi
+
 . "$SCRIPT_DIR/common.sh"
 load_effective_core_config
 
@@ -64,7 +69,23 @@ log "$(core_config_source_message)"
 log "$(bootstrap_fallback_message)"
 log "Category state source: $CATEGORIES_FILE"
 
-if [ "$AUTOSTART" = "1" ]; then
+# Check for auto-switch mode
+if [ "$AUTO_SWITCH" = "1" ]; then
+    log "=== AUTO-SWITCH MODE ENABLED ==="
+    log "WiFi → Zapret2"
+    log "Mobile → VPN"
+    
+    if [ "$VPN_ENABLED" != "1" ]; then
+        log "WARNING: AUTO_SWITCH enabled but VPN not configured (VPN_ENABLED=0)"
+        log "Falling back to standard Zapret2 mode"
+        if [ "$AUTOSTART" = "1" ]; then
+            "$ZAPRET_DIR/scripts/zapret-start.sh"
+        fi
+    else
+        log "Starting network monitor for auto-switch..."
+        "$ZAPRET_DIR/scripts/network-monitor.sh"
+    fi
+elif [ "$AUTOSTART" = "1" ]; then
     log "Autostart enabled, launching zapret2..."
     "$ZAPRET_DIR/scripts/zapret-start.sh"
 else
