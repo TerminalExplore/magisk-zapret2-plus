@@ -26,6 +26,7 @@ data class AppInfo(
     val isSelected: Boolean = false
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppFilterScreen(
     onNavigateBack: () -> Unit
