@@ -117,10 +117,10 @@ class VlessParserTest {
         )
         
         val json = VlessParser.generateXrayJson(config)
-        val inbounds = json.get("inbounds")
         
-        assertTrue(inbounds is JSONArray)
-        assertEquals(1, (inbounds as JSONArray).length())
+        assertTrue(json.has("inbounds"))
+        val inboundsArray = json.getJSONArray("inbounds")
+        assertEquals(1, inboundsArray.length())
     }
 
     @Test
@@ -132,10 +132,9 @@ class VlessParserTest {
         )
         
         val json = VlessParser.generateXrayJson(config)
-        val outbounds = json.get("outbounds")
         
-        assertTrue(outbounds is JSONArray)
-        val outboundsArray = outbounds as JSONArray
+        assertTrue(json.has("outbounds"))
+        val outboundsArray = json.getJSONArray("outbounds")
         assertEquals(2, outboundsArray.length())
         
         val proxy = outboundsArray.getJSONObject(0)
