@@ -123,7 +123,9 @@ object VlessParser {
             .put("port", 0)
             .put("network", "tcp,udp"))
         
-        xrayConfig.put("inbounds", arrayOf(inbounds))
+        val inboundsArray = JSONArray()
+        inboundsArray.put(inbounds)
+        xrayConfig.put("inbounds", inboundsArray)
         
         val outbound = JSONObject()
         outbound.put("tag", "proxy")
@@ -140,9 +142,16 @@ object VlessParser {
             users.put("flow", config.flow)
         }
         
-        vnext.put("users", arrayOf(users))
+        val usersArray = JSONArray()
+        usersArray.put(users)
+        vnext.put("users", usersArray)
         
-        outbound.put("settings", JSONObject().put("vnext", arrayOf(vnext)))
+        val vnextArray = JSONArray()
+        vnextArray.put(vnext)
+        
+        val settings = JSONObject()
+        settings.put("vnext", vnextArray)
+        outbound.put("settings", settings)
         
         val streamSettings = JSONObject()
         streamSettings.put("network", "tcp")
@@ -161,17 +170,24 @@ object VlessParser {
         direct.put("protocol", "freedom")
         direct.put("settings", JSONObject())
         
-        xrayConfig.put("outbounds", arrayOf(outbound, direct))
+        val outboundsArray = JSONArray()
+        outboundsArray.put(outbound)
+        outboundsArray.put(direct)
+        xrayConfig.put("outbounds", outboundsArray)
         
         val routing = JSONObject()
         routing.put("domainStrategy", "IPIfNonMatch")
         
         val rule = JSONObject()
         rule.put("type", "field")
-        rule.put("ip", arrayOf("geoip:private"))
+        val ipArray = JSONArray()
+        ipArray.put("geoip:private")
+        rule.put("ip", ipArray)
         rule.put("outboundTag", "direct")
         
-        routing.put("rules", arrayOf(rule))
+        val rulesArray = JSONArray()
+        rulesArray.put(rule)
+        routing.put("rules", rulesArray)
         xrayConfig.put("routing", routing)
         
         return xrayConfig
