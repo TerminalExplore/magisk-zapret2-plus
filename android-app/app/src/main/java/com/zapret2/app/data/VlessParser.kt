@@ -1,8 +1,8 @@
 package com.zapret2.app.data
 
 import android.util.Base64
+import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URI
 import java.net.URLDecoder
 
 data class VlessConfig(
