@@ -16,6 +16,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.topjohnwu.superuser.Shell
 import com.zapret2.app.ui.components.FluentCard
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 data class AppInfo(
     val packageName: String,
@@ -28,6 +31,7 @@ fun AppFilterScreen(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableIntStateOf(0) }
     var wifiEnabled by remember { mutableStateOf(false) }
     var mobileEnabled by remember { mutableStateOf(false) }
@@ -52,11 +56,9 @@ fun AppFilterScreen(
     )
 
     LaunchedEffect(Unit) {
-        isLoading = true
-        
-        withContext(Dispatchers.IO) {
+        scope.launch(Dispatchers.IO) {
+            isLoading = true
             val pm = context.packageManager
-            val installedPackages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
             
             val apps = commonApps.mapNotNull { (pkg, name) ->
                 try {
@@ -75,9 +77,8 @@ fun AppFilterScreen(
                 onWifiAppsLoaded = { wifiApps = it },
                 onMobileAppsLoaded = { mobileApps = it }
             )
+            isLoading = false
         }
-        
-        isLoading = false
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -121,10 +122,10 @@ fun AppFilterScreen(
             ) {
                 item {
                     val enabled = if (selectedTab == 0) wifiEnabled else mobileEnabled
-                    val onEnabledChange = if (selectedTab == 0) {
-                        { wifiEnabled = it; saveWifiEnabled(it) }
+                    val onEnabledChange: (Boolean) -> Unit = if (selectedTab == 0) {
+                        { value: Boolean -> wifiEnabled = value; saveWifiEnabled(value) }
                     } else {
-                        { mobileEnabled = it; saveMobileEnabled(it) }
+                        { value: Boolean -> mobileEnabled = value; saveMobileEnabled(value) }
                     }
 
                     FluentCard {
@@ -277,35 +278,33 @@ private suspend fun loadSettings(
     onWifiAppsLoaded: (Set<String>) -> Unit,
     onMobileAppsLoaded: (Set<String>) -> Unit
 ) {
-    withContext(Dispatchers.IO) {
-        val result = Shell.cmd(
-            "cat /data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
-        ).exec()
+    val result = Shell.cmd(
+        "cat /data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
+    ).exec()
 
-        if (result.isSuccess) {
-            val content = result.out.joinToString("\n")
-            
-            val wifiEnabled = content.contains("WIFI_APP_FILTER=1")
-            val mobileEnabled = content.contains("MOBILE_APP_FILTER=1")
-            
-            val wifiAppsRegex = Regex("WIFI_APPS=\"([^\"]*)\"").find(content)
-            val mobileAppsRegex = Regex("MOBILE_APPS=\"([^\"]*)\"").find(content)
-            
-            val wifiApps = wifiAppsRegex?.groupValues?.get(1)
-                ?.split(" ")
-                ?.filter { it.isNotBlank() }
-                ?.toSet() ?: emptySet()
-            
-            val mobileApps = mobileAppsRegex?.groupValues?.get(1)
-                ?.split(" ")
-                ?.filter { it.isNotBlank() }
-                ?.toSet() ?: emptySet()
-            
-            onWifiEnabledLoaded(wifiEnabled)
-            onMobileEnabledLoaded(mobileEnabled)
-            onWifiAppsLoaded(wifiApps)
-            onMobileAppsLoaded(mobileApps)
-        }
+    if (result.isSuccess) {
+        val content = result.out.joinToString("\n")
+        
+        val wifiEnabledVal = content.contains("WIFI_APP_FILTER=1")
+        val mobileEnabledVal = content.contains("MOBILE_APP_FILTER=1")
+        
+        val wifiAppsRegex = Regex("WIFI_APPS=\"([^\"]*)\"").find(content)
+        val mobileAppsRegex = Regex("MOBILE_APPS=\"([^\"]*)\"").find(content)
+        
+        val wifiAppsVal = wifiAppsRegex?.groupValues?.get(1)
+            ?.split(" ")
+            ?.filter { app -> app.isNotBlank() }
+            ?.toSet() ?: emptySet()
+        
+        val mobileAppsVal = mobileAppsRegex?.groupValues?.get(1)
+            ?.split(" ")
+            ?.filter { app -> app.isNotBlank() }
+            ?.toSet() ?: emptySet()
+        
+        onWifiEnabledLoaded(wifiEnabledVal)
+        onMobileEnabledLoaded(mobileEnabledVal)
+        onWifiAppsLoaded(wifiAppsVal)
+        onMobileAppsLoaded(mobileAppsVal)
     }
 }
 
@@ -338,10 +337,3 @@ private fun saveMobileApps(apps: Set<String>) {
         "/data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
     ).exec()
 }
-
-private fun <T> kotlinx.coroutines.CoroutineScope.withContext(
-    context: kotlinx.coroutines.CoroutineContext,
-    block: suspend () -> T
-) = kotlinx.coroutines.withContext(context) { block() }
-
-private fun kotlinx.coroutines.CoroutineDispatcher.IO(): kotlinx.coroutines.CoroutineContext = this

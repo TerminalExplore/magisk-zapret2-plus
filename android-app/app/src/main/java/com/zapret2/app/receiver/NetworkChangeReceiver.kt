@@ -23,9 +23,10 @@ class NetworkChangeReceiver : BroadcastReceiver() {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         
         val network = intent.getParcelableExtra<android.net.Network>(ConnectivityManager.EXTRA_NETWORK)
+        @Suppress("DEPRECATION")
         val networkType = intent.getIntExtra(
             ConnectivityManager.EXTRA_NETWORK_TYPE,
-            ConnectivityManager.TYPE_NONE
+            -1
         )
         val noConnectivity = intent.getBooleanExtra(
             ConnectivityManager.EXTRA_NO_CONNECTIVITY,

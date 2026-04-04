@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.topjohnwu.superuser.Shell
 import com.zapret2.app.ui.components.FluentCard
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -20,6 +21,7 @@ fun AutoSwitchSettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var autoSwitchEnabled by remember { mutableStateOf(false) }
     var vpnEnabled by remember { mutableStateOf(false) }
     var subscriptionUrl by remember { mutableStateOf("") }
@@ -28,7 +30,7 @@ fun AutoSwitchSettingsScreen(
     var statusMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
+        scope.launch(Dispatchers.IO) {
             loadSettings(
                 onAutoSwitchLoaded = { autoSwitchEnabled = it },
                 onVpnEnabledLoaded = { vpnEnabled = it },
@@ -147,7 +149,7 @@ fun AutoSwitchSettingsScreen(
                     onClick = {
                         isLoading = true
                         statusMessage = "Importing subscription..."
-                        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                        scope.launch(Dispatchers.IO) {
                             val success = importSubscription(subscriptionUrl)
                             isLoading = false
                             statusMessage = if (success) "Subscription imported!" else "Failed to import"
@@ -196,7 +198,7 @@ fun AutoSwitchSettingsScreen(
                     onClick = {
                         isLoading = true
                         statusMessage = "Applying VLESS config..."
-                        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                        scope.launch(Dispatchers.IO) {
                             val success = applyVlessConfig(vlessConfig)
                             isLoading = false
                             statusMessage = if (success) "VLESS config applied!" else "Failed to apply"
@@ -230,9 +232,9 @@ fun AutoSwitchSettingsScreen(
 
                 Button(
                     onClick = {
-                        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
-                            val status = getNetworkStatus()
-                            statusMessage = status
+                        scope.launch(Dispatchers.IO) {
+                            val networkStatus = getNetworkStatus()
+                            statusMessage = networkStatus
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -330,13 +332,6 @@ private suspend fun getNetworkStatus(): String {
             "[ -f /data/adb/modules/zapret2/zapret2/xray.pid ] && kill -0 \$(cat /data/adb/modules/zapret2/zapret2/xray.pid) 2>/dev/null && echo 'Running' || echo 'Stopped'"
         ).exec()
         
-        result.out.joinToString("\n")
+        networkInfo.out.joinToString("\n")
     }
-}
-
-private fun kotlinx.coroutines.GlobalScope.launch(
-    context: kotlinx.coroutines.CoroutineContext,
-    block: suspend kotlinx.coroutines.CoroutineScope.() -> Unit
-) {
-    kotlinx.coroutines.GlobalScope.launch(context, block = block)
 }

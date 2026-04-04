@@ -16,6 +16,7 @@ import androidx.navigation.NavController
 import com.topjohnwu.superuser.Shell
 import com.zapret2.app.ui.components.FluentCard
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -23,6 +24,7 @@ fun VpnSettingsScreen(
     navController: NavController
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var vpnEnabled by remember { mutableStateOf(false) }
     var subscriptionUrl by remember { mutableStateOf("") }
     var vlessConfig by remember { mutableStateOf("") }
@@ -31,7 +33,7 @@ fun VpnSettingsScreen(
     var vpnStatus by remember { mutableStateOf("Stopped") }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
+        scope.launch(Dispatchers.IO) {
             loadVpnSettings(
                 onVpnEnabledLoaded = { vpnEnabled = it },
                 onSubscriptionLoaded = { subscriptionUrl = it }
@@ -105,7 +107,7 @@ fun VpnSettingsScreen(
                     }
                     Row {
                         IconButton(onClick = {
-                            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                            scope.launch(Dispatchers.IO) {
                                 Shell.cmd("su -c zapret2-vpn-stop 2>/dev/null").exec()
                                 checkVpnStatus { vpnStatus = it }
                             }
@@ -113,7 +115,7 @@ fun VpnSettingsScreen(
                             Icon(Icons.Default.Stop, "Stop", tint = MaterialTheme.colorScheme.error)
                         }
                         IconButton(onClick = {
-                            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                            scope.launch(Dispatchers.IO) {
                                 Shell.cmd("su -c zapret2-vpn-start 2>/dev/null").exec()
                                 checkVpnStatus { vpnStatus = it }
                             }
@@ -121,7 +123,7 @@ fun VpnSettingsScreen(
                             Icon(Icons.Default.PlayArrow, "Start", tint = MaterialTheme.colorScheme.primary)
                         }
                         IconButton(onClick = {
-                            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                            scope.launch(Dispatchers.IO) {
                                 Shell.cmd("su -c zapret2-vpn-stop 2>/dev/null").exec()
                                 kotlinx.coroutines.delay(500)
                                 Shell.cmd("su -c zapret2-vpn-start 2>/dev/null").exec()
@@ -167,7 +169,7 @@ fun VpnSettingsScreen(
                     OutlinedButton(
                         onClick = {
                             isLoading = true
-                            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                            scope.launch(Dispatchers.IO) {
                                 val success = importSubscription(subscriptionUrl)
                                 isLoading = false
                                 statusMessage = if (success) "Imported successfully" else "Import failed"
@@ -184,7 +186,7 @@ fun VpnSettingsScreen(
                     OutlinedButton(
                         onClick = {
                             isLoading = true
-                            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                            scope.launch(Dispatchers.IO) {
                                 saveSubscriptionUrl(subscriptionUrl)
                                 isLoading = false
                                 statusMessage = "Saved"
@@ -230,7 +232,7 @@ fun VpnSettingsScreen(
                 Button(
                     onClick = {
                         isLoading = true
-                        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                        scope.launch(Dispatchers.IO) {
                             val success = applyVlessConfig(vlessConfig)
                             isLoading = false
                             statusMessage = if (success) "Config applied" else "Failed to apply"
