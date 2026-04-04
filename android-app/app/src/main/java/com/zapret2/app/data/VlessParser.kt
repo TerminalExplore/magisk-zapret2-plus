@@ -265,7 +265,8 @@ object VlessParser {
     fun generateSingboxJson(servers: List<SubscriptionServer>): JSONObject {
         val config = JSONObject()
         
-        val outbounds = servers.mapIndexed { index, server ->
+        val outboundsArray = JSONArray()
+        servers.forEachIndexed { index, server ->
             val outbound = JSONObject()
             outbound.put("type", server.type)
             outbound.put("tag", server.tag.ifEmpty { "server-${index + 1}" })
@@ -290,10 +291,10 @@ object VlessParser {
                 }
             }
             
-            outbound
+            outboundsArray.put(outbound)
         }
         
-        config.put("outbounds", outbounds)
+        config.put("outbounds", outboundsArray)
         return config
     }
 }
