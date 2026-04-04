@@ -31,6 +31,8 @@ fun VpnSettingsScreen(
     var isLoading by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }
     var vpnStatus by remember { mutableStateOf("Stopped") }
+    var servers by remember { mutableStateOf<List<ServerInfo>>(emptyList()) }
+    var isPinging by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         scope.launch(Dispatchers.IO) {
@@ -39,6 +41,7 @@ fun VpnSettingsScreen(
                 onSubscriptionLoaded = { subscriptionUrl = it }
             )
             checkVpnStatus { vpnStatus = it }
+            loadServers { servers = it }
         }
     }
 
@@ -173,6 +176,9 @@ fun VpnSettingsScreen(
                                 val success = importSubscription(subscriptionUrl)
                                 isLoading = false
                                 statusMessage = if (success) "Imported successfully" else "Import failed"
+                                if (success) {
+                                    loadServers { servers = it }
+                                }
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -198,6 +204,51 @@ fun VpnSettingsScreen(
                         Icon(Icons.Default.Save, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
                         Text("Save URL")
+                    }
+                }
+            }
+        }
+
+        if (servers.isNotEmpty()) {
+            FluentCard {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Servers (${servers.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                isPinging = true
+                                scope.launch(Dispatchers.IO) {
+                                    servers = pingServers(servers)
+                                    isPinging = false
+                                }
+                            },
+                            enabled = !isPinging
+                        ) {
+                            if (isPinging) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.NetworkPing, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (isPinging) "Pinging..." else "Ping All")
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    servers.forEachIndexed { index, server ->
+                        ServerItem(server = server, index = index)
+                        if (index < servers.size - 1) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        }
                     }
                 }
             }
@@ -347,4 +398,156 @@ private fun checkVpnStatus(callback: (String) -> Unit) {
     ).exec()
     
     callback(result.out.joinToString("").trim())
+}
+
+data class ServerInfo(
+    val name: String,
+    val address: String,
+    val port: Int,
+    val type: String,
+    val latency: Int? = null
+)
+
+@Composable
+private fun ServerItem(server: ServerInfo, index: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = server.name.ifEmpty { "Server ${index + 1}" },
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = "${server.address}:${server.port}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        ServerLatency(latency = server.latency)
+    }
+}
+
+@Composable
+private fun ServerLatency(latency: Int?) {
+    val (color, text) = when {
+        latency == null -> Pair(MaterialTheme.colorScheme.onSurfaceVariant, "—")
+        latency < 100 -> Pair(MaterialTheme.colorScheme.primary, "${latency}ms")
+        latency < 300 -> Pair(MaterialTheme.colorScheme.tertiary, "${latency}ms")
+        else -> Pair(MaterialTheme.colorScheme.error, "${latency}ms")
+    }
+    Text(
+        text = text,
+        color = color,
+        style = MaterialTheme.typography.bodySmall
+    )
+}
+
+private suspend fun loadServers(callback: (List<ServerInfo>) -> Unit) {
+    withContext(Dispatchers.IO) {
+        val servers = mutableListOf<ServerInfo>()
+        
+        val rawFile = "/data/adb/modules/zapret2/zapret2/vpn-subs-raw.txt"
+        val configFile = "/data/adb/modules/zapret2/zapret2/vpn-config.json"
+        
+        val subsResult = Shell.cmd("cat $rawFile 2>/dev/null").exec()
+        if (subsResult.isSuccess) {
+            val content = subsResult.out.joinToString("\n")
+            content.lines().forEach { line ->
+                val trimmed = line.trim()
+                when {
+                    trimmed.startsWith("vless://") -> {
+                        val info = parseVlessUri(trimmed)
+                        if (info != null) servers.add(info)
+                    }
+                    trimmed.startsWith("ss://") -> {
+                        val info = parseSsUri(trimmed)
+                        if (info != null) servers.add(info)
+                    }
+                }
+            }
+        }
+        
+        if (servers.isEmpty()) {
+            val configResult = Shell.cmd("cat $configFile 2>/dev/null").exec()
+            if (configResult.isSuccess) {
+                val content = configResult.out.joinToString("\n")
+                val addrMatch = Regex("\"address\"\\s*:\\s*\"([^\"]+)\"").find(content)
+                val portMatch = Regex("\"port\"\\s*:\\s*(\\d+)").find(content)
+                
+                if (addrMatch != null) {
+                    servers.add(ServerInfo(
+                        name = "Custom Server",
+                        address = addrMatch.groupValues[1],
+                        port = portMatch?.groupValues?.get(1)?.toIntOrNull() ?: 443,
+                        type = "custom"
+                    ))
+                }
+            }
+        }
+        
+        callback(servers)
+    }
+}
+
+private fun parseVlessUri(uri: String): ServerInfo? {
+    return try {
+        val withoutProtocol = uri.removePrefix("vless://")
+        val atIndex = withoutProtocol.indexOf('@')
+        if (atIndex == -1) return null
+        
+        val rest = withoutProtocol.substring(atIndex + 1)
+        val server = rest.substringBefore(':').substringBefore('/').substringBefore('?')
+        val portStr = rest.substringAfter(':', "443").substringBefore('/').substringBefore('?')
+        val port = portStr.toIntOrNull() ?: 443
+        
+        val name = uri.substringAfter('#', "").ifEmpty { "VLESS" }
+        
+        ServerInfo(name = name, address = server, port = port, type = "vless")
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun parseSsUri(uri: String): ServerInfo? {
+    return try {
+        val withoutProtocol = uri.removePrefix("ss://")
+        val atIndex = withoutProtocol.indexOf('@')
+        if (atIndex == -1) return null
+        
+        val rest = withoutProtocol.substring(atIndex + 1)
+        val serverPart = rest.substringBefore('#')
+        val server = serverPart.substringBefore(':')
+        val port = serverPart.substringAfter(':', "443").toIntOrNull() ?: 443
+        
+        val name = uri.substringAfter('#', "").ifEmpty { "SS" }
+        
+        ServerInfo(name = name, address = server, port = port, type = "shadowsocks")
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private suspend fun pingServers(servers: List<ServerInfo>): List<ServerInfo> {
+    return withContext(Dispatchers.IO) {
+        servers.map { server ->
+            val latency = pingServer(server.address, server.port)
+            server.copy(latency = latency)
+        }
+    }
+}
+
+private fun pingServer(address: String, port: Int): Int? {
+    return try {
+        val result = Shell.cmd(
+            "ping -c 1 -W 2 $address 2>/dev/null | grep 'time=' | sed 's/.*time=\\([0-9.]*\\).*/\\1/' | cut -d. -f1"
+        ).exec()
+        
+        val output = result.out.joinToString("").trim()
+        output.toIntOrNull()
+    } catch (e: Exception) {
+        null
+    }
 }

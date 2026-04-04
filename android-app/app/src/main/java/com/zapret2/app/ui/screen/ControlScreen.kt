@@ -247,6 +247,18 @@ fun ControlScreen(viewModel: ControlViewModel = hiltViewModel()) {
                     colors = ButtonDefaults.buttonColors(containerColor = BtnSecondary)
                 ) { Text("Check for updates", color = TextPrimary) }
             }
+            
+            // Module install from file
+            item {
+                OutlinedButton(
+                    onClick = { /* TODO: file picker for module ZIP */ },
+                    modifier = Modifier.fillMaxWidth()
+                ) { 
+                    Icon(Icons.Default.Upload, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Install module from file") 
+                }
+            }
         }
     }
 }
