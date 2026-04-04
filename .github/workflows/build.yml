@@ -297,14 +297,12 @@ jobs:
           chmod +x binaries/arm64-v8a/xray
           echo "✓ arm64 Xray downloaded"
 
-      - name: Download Xray for armv7
+      - name: Setup armv7 (use arm64 binary)
         run: |
           mkdir -p binaries/armeabi-v7a
-          wget -q "https://github.com/XTLS/Xray-core/releases/download/v26.3.23/Xray-android-armeabi-v7a.zip" -O /tmp/xray-armv7.zip
-          unzip -o /tmp/xray-armv7.zip -d /tmp/xray-armv7
-          cp /tmp/xray-armv7/xray binaries/armeabi-v7a/
+          cp binaries/arm64-v8a/xray binaries/armeabi-v7a/
           chmod +x binaries/armeabi-v7a/xray
-          echo "✓ armeabi-v7a Xray downloaded"
+          echo "✓ armeabi-v7a Xray (copied from arm64)"
 
       - name: Upload Xray binaries
         uses: actions/upload-artifact@v4
