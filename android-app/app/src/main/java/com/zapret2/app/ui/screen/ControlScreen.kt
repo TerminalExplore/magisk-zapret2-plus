@@ -196,7 +196,31 @@ fun ControlScreen(viewModel: ControlViewModel = hiltViewModel()) {
                 FluentCard {
                     SettingToggleRow(title = "Autostart on boot", checked = state.autostart, onCheckedChange = { viewModel.setAutostart(it) }, icon = Icons.Default.PowerSettingsNew)
                     Spacer(modifier = Modifier.height(4.dp))
-                    SettingToggleRow(title = "WiFi only", checked = state.wifiOnly, onCheckedChange = { viewModel.setWifiOnly(it) }, icon = Icons.Default.Wifi, subtitle = "Only run on WiFi networks")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Wifi, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Network Mode", fontSize = 14.sp, color = TextPrimary)
+                                Text(
+                                    text = when {
+                                        state.wifiOnly -> "WiFi Only"
+                                        else -> "All Networks"
+                                    },
+                                    fontSize = 12.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = state.wifiOnly,
+                            onCheckedChange = { viewModel.setWifiOnly(it) }
+                        )
+                    }
                 }
             }
 

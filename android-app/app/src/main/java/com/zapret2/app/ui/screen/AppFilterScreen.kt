@@ -1,6 +1,8 @@
 package com.zapret2.app.ui.screen
 
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,18 +13,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import com.topjohnwu.superuser.Shell
 import com.zapret2.app.ui.components.FluentCard
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class AppInfo(
     val packageName: String,
     val appName: String,
+    val icon: Drawable? = null,
     val isSelected: Boolean = false
 )
 
@@ -40,21 +45,12 @@ fun AppFilterScreen(
     var mobileApps by remember { mutableStateOf(setOf<String>()) }
     var isLoading by remember { mutableStateOf(true) }
     var installedApps by remember { mutableStateOf(listOf<AppInfo>()) }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedApps by remember { mutableStateOf(setOf<String>()) }
 
-    val commonApps = listOf(
-        "com.google.android.youtube" to "YouTube",
-        "com.google.android.apps.youtube.music" to "YouTube Music",
-        "com.discord" to "Discord",
-        "com.discord.staff" to "Discord Beta",
-        "com.telegram.messenger" to "Telegram",
-        "com.whatsapp" to "WhatsApp",
-        "com.instagram.android" to "Instagram",
-        "com.facebook.katana" to "Facebook",
-        "com.twitter.android" to "Twitter/X",
-        "com.netflix.mediaclient" to "Netflix",
-        "com.spotify.music" to "Spotify",
-        "com.google.android.apps.googlevoice" to "Google Voice"
-    )
+    LaunchedEffect(selectedTab, wifiApps, mobileApps) {
+        selectedApps = if (selectedTab == 0) wifiApps else mobileApps
+    }
 
     LaunchedEffect(Unit) {
         scope.launch(Dispatchers.IO) {
@@ -69,15 +65,21 @@ fun AppFilterScreen(
                 for (appInfo in installedPackages) {
                     if (appInfo.packageName.startsWith("com.android.") ||
                         appInfo.packageName.startsWith("com.google.android.input") ||
-                        appInfo.packageName.startsWith("com.android.launcher")) {
+                        appInfo.packageName.startsWith("com.android.launcher") ||
+                        appInfo.packageName.startsWith("com.android.systemui")) {
                         continue
                     }
                     
                     try {
                         val appName = pm.getApplicationLabel(appInfo).toString()
-                        apps.add(AppInfo(appInfo.packageName, appName))
+                        val icon = try {
+                            pm.getApplicationIcon(appInfo.packageName)
+                        } catch (e: Exception) {
+                            null
+                        }
+                        apps.add(AppInfo(appInfo.packageName, appName, icon))
                     } catch (e: Exception) {
-                        apps.add(AppInfo(appInfo.packageName, appInfo.packageName))
+                        apps.add(AppInfo(appInfo.packageName, appInfo.packageName, null))
                     }
                 }
             } catch (e: Exception) {
@@ -96,6 +98,17 @@ fun AppFilterScreen(
         }
     }
 
+    val filteredApps = remember(installedApps, searchQuery) {
+        if (searchQuery.isBlank()) {
+            installedApps
+        } else {
+            installedApps.filter {
+                it.appName.contains(searchQuery, ignoreCase = true) ||
+                it.packageName.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("App Filter") },
@@ -104,6 +117,24 @@ fun AppFilterScreen(
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                 }
             }
+        )
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            placeholder = { Text("Search apps...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    }
+                }
+            },
+            singleLine = true
         )
 
         TabRow(selectedTabIndex = selectedTab) {
@@ -132,8 +163,9 @@ fun AppFilterScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 item {
                     val enabled = if (selectedTab == 0) wifiEnabled else mobileEnabled
@@ -174,10 +206,7 @@ fun AppFilterScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                             
                             Text(
-                                text = if (selectedTab == 0)
-                                    "Only these apps will use Zapret2 on WiFi"
-                                else
-                                    "Only these apps will use VPN on Mobile",
+                                text = "Selected: ${selectedApps.size} apps",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -185,24 +214,15 @@ fun AppFilterScreen(
                     }
                 }
 
-                item {
-                    Text(
-                        text = "Select Apps",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                val selectedApps = if (selectedTab == 0) wifiApps else mobileApps
-                
-                items(installedApps) { app ->
+                items(filteredApps) { app ->
                     val isSelected = selectedApps.contains(app.packageName)
                     val onToggle = { selected: Boolean ->
                         val newSet = if (selected) {
-                            if (selectedTab == 0) wifiApps + app.packageName else mobileApps + app.packageName
+                            selectedApps + app.packageName
                         } else {
-                            if (selectedTab == 0) wifiApps - app.packageName else mobileApps - app.packageName
+                            selectedApps - app.packageName
                         }
+                        selectedApps = newSet
                         
                         if (selectedTab == 0) {
                             wifiApps = newSet
@@ -220,8 +240,29 @@ fun AppFilterScreen(
                     )
                 }
 
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
+                if (filteredApps.isEmpty() && searchQuery.isNotEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.SearchOff,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "No apps found",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -240,48 +281,48 @@ private fun AppFilterItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
             ) {
-                Icon(
-                    imageVector = when {
-                        app.packageName.contains("youtube") -> Icons.Default.PlayCircle
-                        app.packageName.contains("discord") -> Icons.Default.Chat
-                        app.packageName.contains("telegram") -> Icons.Default.Send
-                        app.packageName.contains("whatsapp") -> Icons.Default.ChatBubble
-                        app.packageName.contains("instagram") -> Icons.Default.PhotoCamera
-                        app.packageName.contains("facebook") -> Icons.Default.People
-                        app.packageName.contains("twitter") -> Icons.Default.TextFields
-                        app.packageName.contains("netflix") -> Icons.Default.Movie
-                        app.packageName.contains("spotify") -> Icons.Default.MusicNote
-                        else -> Icons.Default.Apps
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                if (app.icon != null) {
+                    Image(
+                        bitmap = app.icon.toBitmap(48, 48).asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp)
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Android,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
                 
                 Column {
                     Text(
                         text = app.appName,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
                     Text(
                         text = app.packageName,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
             }
             
             Checkbox(
                 checked = isSelected,
-                onCheckedChange = onToggle
+                onCheckedChange = { onToggle(it) }
             )
         }
     }
@@ -293,33 +334,35 @@ private suspend fun loadSettings(
     onWifiAppsLoaded: (Set<String>) -> Unit,
     onMobileAppsLoaded: (Set<String>) -> Unit
 ) {
-    val result = Shell.cmd(
-        "cat /data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
-    ).exec()
+    withContext(Dispatchers.IO) {
+        val result = Shell.cmd(
+            "cat /data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
+        ).exec()
 
-    if (result.isSuccess) {
-        val content = result.out.joinToString("\n")
-        
-        val wifiEnabledVal = content.contains("WIFI_APP_FILTER=1")
-        val mobileEnabledVal = content.contains("MOBILE_APP_FILTER=1")
-        
-        val wifiAppsRegex = Regex("WIFI_APPS=\"([^\"]*)\"").find(content)
-        val mobileAppsRegex = Regex("MOBILE_APPS=\"([^\"]*)\"").find(content)
-        
-        val wifiAppsVal = wifiAppsRegex?.groupValues?.get(1)
-            ?.split(" ")
-            ?.filter { app -> app.isNotBlank() }
-            ?.toSet() ?: emptySet()
-        
-        val mobileAppsVal = mobileAppsRegex?.groupValues?.get(1)
-            ?.split(" ")
-            ?.filter { app -> app.isNotBlank() }
-            ?.toSet() ?: emptySet()
-        
-        onWifiEnabledLoaded(wifiEnabledVal)
-        onMobileEnabledLoaded(mobileEnabledVal)
-        onWifiAppsLoaded(wifiAppsVal)
-        onMobileAppsLoaded(mobileAppsVal)
+        if (result.isSuccess) {
+            val content = result.out.joinToString("\n")
+            
+            val wifiEnabledVal = content.contains("WIFI_APP_FILTER=1")
+            val mobileEnabledVal = content.contains("MOBILE_APP_FILTER=1")
+            
+            val wifiAppsRegex = Regex("WIFI_APPS=\"([^\"]*)\"").find(content)
+            val mobileAppsRegex = Regex("MOBILE_APPS=\"([^\"]*)\"").find(content)
+            
+            val wifiAppsVal = wifiAppsRegex?.groupValues?.get(1)
+                ?.split(" ")
+                ?.filter { app -> app.isNotBlank() }
+                ?.toSet() ?: emptySet()
+            
+            val mobileAppsVal = mobileAppsRegex?.groupValues?.get(1)
+                ?.split(" ")
+                ?.filter { app -> app.isNotBlank() }
+                ?.toSet() ?: emptySet()
+            
+            onWifiEnabledLoaded(wifiEnabledVal)
+            onMobileEnabledLoaded(mobileEnabledVal)
+            onWifiAppsLoaded(wifiAppsVal)
+            onMobileAppsLoaded(mobileAppsVal)
+        }
     }
 }
 

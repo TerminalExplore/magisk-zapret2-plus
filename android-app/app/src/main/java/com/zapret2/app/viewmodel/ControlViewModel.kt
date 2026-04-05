@@ -40,7 +40,9 @@ data class ControlUiState(
     val nfqueueSupported: Boolean = true,
     val isUpdating: Boolean = false,
     val updateProgress: Float = 0f,
-    val updateStatus: String = ""
+    val updateStatus: String = "",
+    val vpnRunning: Boolean = false,
+    val vpnEnabled: Boolean = false
 )
 
 data class ProcessStats(
@@ -129,6 +131,9 @@ class ControlViewModel @Inject constructor(
         withContext(Dispatchers.IO) {
             val isRunning = Shell.cmd("pgrep -f nfqws2 >/dev/null 2>&1").exec().isSuccess
             val netStats = networkStatsManager.getNetworkStats()
+            
+            val vpnEnabled = Shell.cmd("grep -q 'VPN_ENABLED=1' /data/adb/modules/zapret2/zapret2/vpn-config.env 2>/dev/null && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
+            val vpnRunning = Shell.cmd("[ -f /data/adb/modules/zapret2/zapret2/xray.pid ] && kill -0 \$(cat /data/adb/modules/zapret2/zapret2/xray.pid) 2>/dev/null && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
 
             val processStats = if (isRunning) {
                 val pidResult = Shell.cmd("pgrep -f nfqws2 | head -1").exec()
@@ -144,16 +149,27 @@ class ControlViewModel @Inject constructor(
                 } else ProcessStats()
             } else ProcessStats()
 
+            val statusText = buildString {
+                if (isRunning) append("Zapret2: Running")
+                if (vpnRunning) {
+                    if (isRunning) append(" | ")
+                    append("VPN: Running")
+                }
+                if (!isRunning && !vpnRunning) append("Stopped")
+            }
+
             _uiState.update { it.copy(
                 isRunning = isRunning,
-                statusText = if (isRunning) "Running" else "Stopped",
+                statusText = statusText,
                 uptime = processStats.uptime,
                 networkType = networkStatsManager.getNetworkTypeString(netStats.networkType),
                 wifiSsid = netStats.wifiSsid,
                 iptablesActive = netStats.iptablesActive,
                 nfqueueRulesCount = netStats.nfqueueRulesCount,
                 iptablesDetail = netStats.iptablesDetail,
-                processStats = processStats
+                processStats = processStats,
+                vpnRunning = vpnRunning,
+                vpnEnabled = vpnEnabled
             )}
         }
     }

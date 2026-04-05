@@ -200,8 +200,10 @@ fun VpnSettingsScreen(
                             isLoading = true
                             scope.launch(Dispatchers.IO) {
                                 saveSubscriptionUrl(subscriptionUrl)
+                                importSubscription(subscriptionUrl)
+                                loadServers { servers = it }
                                 isLoading = false
-                                statusMessage = "Saved"
+                                statusMessage = "Saved and imported"
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -209,7 +211,7 @@ fun VpnSettingsScreen(
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
-                        Text("Save URL")
+                        Text("Save & Apply")
                     }
                 }
             }
