@@ -117,7 +117,7 @@ fun VpnSettingsScreen(
                     Row {
                         IconButton(onClick = {
                             scope.launch(Dispatchers.IO) {
-                                Shell.cmd("su -c zapret2-vpn-stop 2>/dev/null").exec()
+                                Shell.cmd("sh /data/adb/modules/zapret2/zapret2/scripts/vpn-stop.sh 2>&1").exec()
                                 checkVpnStatus { vpnStatus = it }
                             }
                         }) {
@@ -125,7 +125,7 @@ fun VpnSettingsScreen(
                         }
                         IconButton(onClick = {
                             scope.launch(Dispatchers.IO) {
-                                Shell.cmd("su -c zapret2-vpn-start 2>/dev/null").exec()
+                                Shell.cmd("sh /data/adb/modules/zapret2/zapret2/scripts/vpn-start.sh 2>&1").exec()
                                 checkVpnStatus { vpnStatus = it }
                             }
                         }) {
@@ -133,9 +133,9 @@ fun VpnSettingsScreen(
                         }
                         IconButton(onClick = {
                             scope.launch(Dispatchers.IO) {
-                                Shell.cmd("su -c zapret2-vpn-stop 2>/dev/null").exec()
+                                Shell.cmd("sh /data/adb/modules/zapret2/zapret2/scripts/vpn-stop.sh 2>&1").exec()
                                 kotlinx.coroutines.delay(500)
-                                Shell.cmd("su -c zapret2-vpn-start 2>/dev/null").exec()
+                                Shell.cmd("sh /data/adb/modules/zapret2/zapret2/scripts/vpn-start.sh 2>&1").exec()
                                 kotlinx.coroutines.delay(1000)
                                 checkVpnStatus { vpnStatus = it }
                             }
@@ -433,8 +433,9 @@ private fun saveSubscriptionUrl(url: String) {
 
 private suspend fun importSubscription(url: String): Boolean {
     return withContext(Dispatchers.IO) {
+        val script = "/data/adb/modules/zapret2/zapret2/scripts/subscription-parser.sh"
         val result = Shell.cmd(
-            "su -c '/data/adb/modules/zapret2/zapret2/scripts/subscription-parser.sh import $url' 2>/dev/null"
+            "sh '$script' import '$url' 2>&1"
         ).exec()
         result.isSuccess
     }
@@ -448,15 +449,16 @@ private suspend fun applyVlessConfig(config: String): Boolean {
             .replace("\n", "\\n")
         
         val result = Shell.cmd(
-            "echo '$escaped' | su -c 'base64 -d > /data/adb/modules/zapret2/zapret2/vpn-config.json 2>/dev/null' && " +
-            "cp /data/adb/modules/zapret2/zapret2/vpn-config.json /data/adb/modules/zapret2/zapret2/xray-config.json 2>/dev/null || true"
+            "echo '$escaped' | base64 -d > /data/adb/modules/zapret2/zapret2/vpn-config.json 2>&1"
         ).exec()
         
-        if (!result.isSuccess) {
-            Shell.cmd(
-                "echo '$config' | su -c '/data/adb/modules/zapret2/zapret2/scripts/subscription-parser.sh vless \"\$1\"' bash \"$config\" 2>/dev/null"
-            ).exec()
+        if (result.isSuccess) {
+            Shell.cmd("cp /data/adb/modules/zapret2/zapret2/vpn-config.json /data/adb/modules/zapret2/zapret2/xray-config.json 2>&1").exec()
         }
+        
+        result.isSuccess
+    }
+}
         
         result.isSuccess
     }
@@ -464,9 +466,16 @@ private suspend fun applyVlessConfig(config: String): Boolean {
 
 private fun checkVpnStatus(callback: (String) -> Unit) {
     val result = Shell.cmd(
-        "[ -f /data/adb/modules/zapret2/zapret2/xray.pid ] && " +
-        "kill -0 \$(cat /data/adb/modules/zapret2/zapret2/xray.pid) 2>/dev/null && " +
-        "echo 'Running' || echo 'Stopped'"
+        "if [ -f /data/adb/modules/zapret2/zapret2/xray.pid ]; then " +
+        "  PID=\$(cat /data/adb/modules/zapret2/zapret2/xray.pid); " +
+        "  if kill -0 \$PID 2>/dev/null; then " +
+        "    echo 'Running (PID: '\$PID')'; " +
+        "  else " +
+        "    echo 'Stopped (stale pid)'; " +
+        "  fi; " +
+        "else " +
+        "  echo 'Stopped'; " +
+        "fi"
     ).exec()
     
     callback(result.out.joinToString("").trim())

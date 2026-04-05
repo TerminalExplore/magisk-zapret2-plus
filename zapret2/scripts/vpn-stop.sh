@@ -1,10 +1,10 @@
 #!/system/bin/sh
 ##########################################################################################
 # VPN Stop Script
-# Stops Xray/Singbox VPN client
+# Stops Xray VPN client
 ##########################################################################################
 
-MODDIR="${0%/*}/.."
+MODDIR="${0%/*}/../.."
 ZAPRET_DIR="$MODDIR/zapret2"
 LOGFILE="/data/local/tmp/zapret2-vpn.log"
 PIDFILE="$ZAPRET_DIR/xray.pid"

@@ -1,10 +1,10 @@
 #!/system/bin/sh
 ##########################################################################################
 # VPN Start Script
-# Starts Xray/Singbox VPN client with VLESS/SS/VMess support
+# Starts Xray VPN client with VLESS/SS/VMess support
 ##########################################################################################
 
-MODDIR="${0%/*}/.."
+MODDIR="${0%/*}/../.."
 ZAPRET_DIR="$MODDIR/zapret2"
 LOGFILE="/data/local/tmp/zapret2-vpn.log"
 PIDFILE="$ZAPRET_DIR/xray.pid"
