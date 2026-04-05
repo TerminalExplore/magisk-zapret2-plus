@@ -60,13 +60,16 @@ fun AppFilterScreen(
             val apps = mutableListOf<AppInfo>()
             
             try {
-                val installedPackages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                val installedPackages = pm.getInstalledApplications(
+                    PackageManager.GET_META_DATA or PackageManager.GET_SHARED_LIBRARY_FILES
+                )
                 
                 for (appInfo in installedPackages) {
                     if (appInfo.packageName.startsWith("com.android.") ||
                         appInfo.packageName.startsWith("com.google.android.input") ||
                         appInfo.packageName.startsWith("com.android.launcher") ||
-                        appInfo.packageName.startsWith("com.android.systemui")) {
+                        appInfo.packageName.startsWith("com.android.systemui") ||
+                        appInfo.packageName == "com.zapret2.app") {
                         continue
                     }
                     

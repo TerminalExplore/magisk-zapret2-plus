@@ -18,12 +18,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+enum class NetworkMode(val value: Int, val label: String) {
+    ALL(0, "All Networks"),
+    WIFI(1, "WiFi Only"),
+    MOBILE(2, "Mobile Only");
+    
+    companion object {
+        fun fromValue(value: Int) = entries.find { it.value == value } ?: ALL
+    }
+}
+
 data class ControlUiState(
     val isRunning: Boolean = false,
     val statusText: String = "Checking...",
     val uptime: String = "",
     val autostart: Boolean = true,
-    val wifiOnly: Boolean = false,
+    val networkMode: NetworkMode = NetworkMode.ALL,
     val moduleVersion: String = "",
     val networkType: String = "Checking...",
     val wifiSsid: String? = null,
@@ -107,7 +117,11 @@ class ControlViewModel @Inject constructor(
                 nfqueueSupported = nfqueueSupported,
                 moduleVersion = moduleVersion,
                 autostart = coreValues["autostart"] != "0",
-                wifiOnly = coreValues["wifi_only"] == "1",
+                networkMode = when (coreValues["wifi_only"]) {
+                    "1" -> NetworkMode.WIFI
+                    "2" -> NetworkMode.MOBILE
+                    else -> NetworkMode.ALL
+                },
                 pktOut = coreValues["pkt_out"]?.toIntOrNull() ?: 20,
                 pktIn = coreValues["pkt_in"]?.toIntOrNull() ?: 10,
                 showQuicBanner = !prefs.getBoolean("quic_banner_dismissed", false)
@@ -263,11 +277,12 @@ class ControlViewModel @Inject constructor(
         }
     }
 
-    fun setWifiOnly(enabled: Boolean) {
+    fun setNetworkMode(mode: NetworkMode) {
         viewModelScope.launch {
-            val success = RuntimeConfigStore.upsertCoreValue("wifi_only", if (enabled) "1" else "0")
+            val value = mode.value.toString()
+            val success = RuntimeConfigStore.upsertCoreValue("wifi_only", value)
             if (success) {
-                _uiState.update { it.copy(wifiOnly = enabled) }
+                _uiState.update { it.copy(networkMode = mode) }
             }
         }
     }

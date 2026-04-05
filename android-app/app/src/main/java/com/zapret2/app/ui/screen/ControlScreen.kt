@@ -195,30 +195,32 @@ fun ControlScreen(viewModel: ControlViewModel = hiltViewModel()) {
                 SectionHeader("SETTINGS")
                 FluentCard {
                     SettingToggleRow(title = "Autostart on boot", checked = state.autostart, onCheckedChange = { viewModel.setAutostart(it) }, icon = Icons.Default.PowerSettingsNew)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Network Mode", fontSize = 12.sp, color = TextSecondary)
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Wifi, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text("Network Mode", fontSize = 14.sp, color = TextPrimary)
-                                Text(
-                                    text = when {
-                                        state.wifiOnly -> "WiFi Only"
-                                        else -> "All Networks"
-                                    },
-                                    fontSize = 12.sp,
-                                    color = TextSecondary
-                                )
-                            }
-                        }
-                        Switch(
-                            checked = state.wifiOnly,
-                            onCheckedChange = { viewModel.setWifiOnly(it) }
+                        FilterChip(
+                            selected = state.networkMode == com.zapret2.app.viewmodel.NetworkMode.ALL,
+                            onClick = { viewModel.setNetworkMode(com.zapret2.app.viewmodel.NetworkMode.ALL) },
+                            label = { Text("All") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = state.networkMode == com.zapret2.app.viewmodel.NetworkMode.WIFI,
+                            onClick = { viewModel.setNetworkMode(com.zapret2.app.viewmodel.NetworkMode.WIFI) },
+                            label = { Text("WiFi") },
+                            leadingIcon = { Icon(Icons.Default.Wifi, null, Modifier.size(16.dp)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = state.networkMode == com.zapret2.app.viewmodel.NetworkMode.MOBILE,
+                            onClick = { viewModel.setNetworkMode(com.zapret2.app.viewmodel.NetworkMode.MOBILE) },
+                            label = { Text("Mobile") },
+                            leadingIcon = { Icon(Icons.Default.SignalCellular4Bar, null, Modifier.size(16.dp)) },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }

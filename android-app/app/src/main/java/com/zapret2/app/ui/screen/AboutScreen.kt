@@ -26,22 +26,22 @@ fun AboutScreen() {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FluentCard {
+            Text("Zapret2 Plus", fontSize = 24.sp, color = TextPrimary)
+            Text("v${BuildConfig.VERSION_NAME}", fontSize = 14.sp, color = TextSecondary)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("DPI bypass with auto-switch WiFi/Mobile, VPN support, and app filtering", fontSize = 13.sp, color = TextTertiary)
+        }
+
         FluentCard(modifier = Modifier.clickable { openUrl("https://github.com/TerminalExplore") }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Person, null, tint = AccentLight)
                 Spacer(Modifier.width(12.dp))
                 Column { 
                     Text("Fork by TerminalExplore", color = TextPrimary) 
-                    Text("Zapret2 Plus - Magisk Module", fontSize = 12.sp, color = TextSecondary) 
+                    Text("Magisk Module", fontSize = 12.sp, color = TextSecondary) 
                 }
             }
-        }
-
-        FluentCard {
-            Text("Zapret2 Plus", fontSize = 20.sp, color = TextPrimary)
-            Text("v${BuildConfig.VERSION_NAME}", fontSize = 14.sp, color = TextSecondary)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("DPI bypass with auto-switch WiFi/Mobile, VPN support, and app filtering", fontSize = 13.sp, color = TextTertiary)
         }
 
         FluentCard(modifier = Modifier.clickable { openUrl("https://github.com/bol-van/zapret2") }) {
