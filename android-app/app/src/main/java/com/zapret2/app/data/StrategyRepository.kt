@@ -19,6 +19,7 @@ object StrategyRepository {
     private const val UDP_STRATEGIES_FILE = "$MODDIR/zapret2/strategies-udp.ini"
     private const val STUN_STRATEGIES_FILE = "$MODDIR/zapret2/strategies-stun.ini"
     private const val CATEGORIES_FILE = "$MODDIR/zapret2/categories.ini"
+    private const val PRESETS_DIR = "$MODDIR/zapret2/presets"
 
     // Cached strategies
     private var tcpStrategies: List<StrategyInfo>? = null
@@ -36,6 +37,14 @@ object StrategyRepository {
         val displayName: String,
         val description: String,
         val args: String
+    )
+
+    data class PresetInfo(
+        val name: String,
+        val fileName: String,
+        val isBuiltin: Boolean,
+        val iconColor: String?,
+        val modifiedDate: String?
     )
 
     /**
@@ -727,6 +736,127 @@ object StrategyRepository {
         tcpStrategies = null
         udpStrategies = null
         stunStrategies = null
+    }
+
+    private var cachedPresets: List<PresetInfo>? = null
+
+    /**
+     * Load all presets from the presets directory.
+     * Presets starting with '_' are ignored (templates).
+     */
+    suspend fun getPresets(): List<PresetInfo> {
+        if (cachedPresets != null) return cachedPresets!!
+
+        return withContext(Dispatchers.IO) {
+            val presets = mutableListOf<PresetInfo>()
+
+            val result = Shell.cmd("ls '$PRESETS_DIR'/*.txt 2>/dev/null").exec()
+            if (result.isSuccess) {
+                for (fileName in result.out) {
+                    val trimmed = fileName.trim()
+                    if (trimmed.isEmpty()) continue
+
+                    val name = trimmed.removePrefix("$PRESETS_DIR/").removeSuffix(".txt")
+                    if (name.startsWith("_")) continue
+
+                    val content = Shell.cmd("cat '$trimmed' 2>/dev/null").exec()
+                    if (content.isSuccess) {
+                        var isBuiltin = false
+                        var iconColor: String? = null
+                        var modifiedDate: String? = null
+
+                        for (line in content.out) {
+                            val l = line.trim()
+                            if (l.startsWith("# BuiltinVersion:") || l.startsWith("# Preset:")) {
+                                isBuiltin = true
+                            }
+                            if (l.startsWith("# IconColor:")) {
+                                iconColor = l.removePrefix("# IconColor:").trim()
+                            }
+                            if (l.startsWith("# Modified:")) {
+                                modifiedDate = l.removePrefix("# Modified:").trim()
+                            }
+                        }
+
+                        presets.add(PresetInfo(
+                            name = name,
+                            fileName = trimmed,
+                            isBuiltin = isBuiltin,
+                            iconColor = iconColor,
+                            modifiedDate = modifiedDate
+                        ))
+                    }
+                }
+            }
+
+            cachedPresets = presets
+            presets
+        }
+    }
+
+    /**
+     * Get current active preset name from runtime.ini.
+     */
+    suspend fun getCurrentPreset(): String? = withContext(Dispatchers.IO) {
+        val content = Shell.cmd("cat '$MODDIR/zapret2/runtime.ini' 2>/dev/null").exec()
+        if (!content.isSuccess) return@withContext null
+
+        for (line in content.out) {
+            val l = line.trim()
+            if (l.startsWith("active_preset=")) {
+                return@withContext l.removePrefix("active_preset=").trim().ifEmpty { null }
+            }
+        }
+        null
+    }
+
+    /**
+     * Apply a preset by copying it to runtime.ini.
+     */
+    suspend fun applyPreset(presetName: String): Boolean = withContext(Dispatchers.IO) {
+        val presetPath = "$PRESETS_DIR/$presetName.txt"
+        val result = Shell.cmd("cat '$presetPath' 2>/dev/null").exec()
+        if (!result.isSuccess) return@withContext false
+
+        val runtimePath = "$MODDIR/zapret2/runtime.ini"
+        val content = result.out.joinToString("\n")
+
+        var delimiter = "__ZAPRET_PRESET_EOF__"
+        while (content.contains(delimiter)) delimiter += "_X"
+
+        val writeResult = Shell.cmd("cat <<'$delimiter' > \"$runtimePath\"\n$content\n$delimiter").exec()
+        if (!writeResult.isSuccess) return@withContext false
+
+        cachedPresets = null
+        true
+    }
+
+    /**
+     * Export current configuration as a user preset.
+     */
+    suspend fun exportAsPreset(name: String): Boolean = withContext(Dispatchers.IO) {
+        val runtimePath = "$MODDIR/zapret2/runtime.ini"
+        val result = Shell.cmd("cat '$runtimePath' 2>/dev/null").exec()
+        if (!result.isSuccess) return@withContext false
+
+        val content = result.out.joinToString("\n")
+        val presetPath = "$PRESETS_DIR/$name.txt"
+
+        var delimiter = "__ZAPRET_PRESET_EOF__"
+        while (content.contains(delimiter)) delimiter += "_X"
+
+        val writeResult = Shell.cmd("cat <<'$delimiter' > \"$presetPath\"\n$content\n$delimiter").exec()
+        if (!writeResult.isSuccess) return@withContext false
+
+        cachedPresets = null
+        true
+    }
+
+    /**
+     * Clear presets cache.
+     */
+    fun clearPresetsCache() {
+        cachedPresets = null
     }
 
     // Helper functions

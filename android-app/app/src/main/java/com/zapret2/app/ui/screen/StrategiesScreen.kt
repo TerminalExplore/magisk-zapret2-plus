@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,28 +32,37 @@ import com.zapret2.app.viewmodel.*
 fun StrategiesScreen(viewModel: StrategiesViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // Which category is being picked (null = show categories list)
     var pickingCategory by remember { mutableStateOf<CategoryUiModel?>(null) }
+    var isAutoSelecting by remember { mutableStateOf(false) }
+    var showPresetDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.snackbar.collect { snackbarHostState.showSnackbar(it) } }
 
     Box {
-        Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+        Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) {
             AnimatedContent(
                 targetState = pickingCategory,
-                modifier = Modifier.padding(padding),
                 label = "strategies_content"
             ) { category ->
                 if (category == null) {
-                    // Categories list
                     CategoriesListView(
                         state = state,
                         viewModel = viewModel,
-                        onCategoryClick = { pickingCategory = it }
+                        onCategoryClick = { pickingCategory = it },
+                        onAutoSelect = {
+                            isAutoSelecting = true
+                            scope.launch {
+                                viewModel.autoSelectStrategies()
+                                isAutoSelecting = false
+                            }
+                        },
+                        isAutoSelecting = isAutoSelecting,
+                        onPresetsClick = { showPresetDialog = true }
                     )
                 } else {
-                    // Full-page strategy picker
                     StrategyPickerView(
                         category = category,
                         onBack = { pickingCategory = null },
@@ -66,19 +76,75 @@ fun StrategiesScreen(viewModel: StrategiesViewModel = hiltViewModel()) {
         }
         LoadingOverlay(text = state.loadingText, visible = state.isLoading)
     }
+
+    if (showPresetDialog) {
+        PresetSelectionDialog(
+            onDismiss = { showPresetDialog = false },
+            onPresetSelected = { presetName ->
+                scope.launch {
+                    viewModel.applyPreset(presetName)
+                }
+                showPresetDialog = false
+            }
+        )
+    }
 }
 
 @Composable
 private fun CategoriesListView(
     state: StrategiesUiState,
     viewModel: StrategiesViewModel,
-    onCategoryClick: (CategoryUiModel) -> Unit
+    onCategoryClick: (CategoryUiModel) -> Unit,
+    onAutoSelect: () -> Unit,
+    isAutoSelecting: Boolean,
+    onPresetsClick: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
+        item { SectionHeader("PRESETS") }
+        item {
+            SettingRow(
+                title = "Load Preset",
+                value = state.activePreset ?: "None",
+                onClick = onPresetsClick,
+                icon = Icons.Default.FolderOpen
+            )
+            Text(
+                text = "Apply a complete configuration preset",
+                fontSize = 11.sp,
+                color = TextTertiary,
+                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+            )
+        }
+        item { Spacer(modifier = Modifier.height(8.dp)) }
+        item { SectionHeader("AUTO SELECTION") }
+        item {
+            Button(
+                onClick = onAutoSelect,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isAutoSelecting && !state.isLoading
+            ) {
+                if (isAutoSelecting) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Testing strategies...")
+                } else {
+                    Icon(Icons.Default.AutoFixHigh, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Auto-select best strategies")
+                }
+            }
+            Text(
+                text = "Tests TCP strategies for enabled categories by checking real site access through zapret2. Keeps the best result.",
+                fontSize = 11.sp,
+                color = TextTertiary,
+                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+            )
+        }
+        item { Spacer(modifier = Modifier.height(12.dp)) }
         item { SectionHeader("CATEGORIES") }
         items(state.categories, key = { it.key }) { cat ->
             CategoryRow(
@@ -190,7 +256,7 @@ private fun StrategyPickerView(
                     onBack()
                 }
             }) {
-                Icon(Icons.Default.ArrowBack, "Back", tint = TextPrimary)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = TextPrimary)
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -443,4 +509,85 @@ private fun resolveCategoryColor(key: String, type: String): Color {
         type == "udp" -> UdpBlue
         else -> StatusSuccess
     }
+}
+
+@Composable
+private fun PresetSelectionDialog(
+    onDismiss: () -> Unit,
+    onPresetSelected: (String) -> Unit
+) {
+    var presets by remember { mutableStateOf<List<StrategyRepository.PresetInfo>>(emptyList()) }
+    var currentPreset by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        presets = StrategyRepository.getPresets()
+        currentPreset = StrategyRepository.getCurrentPreset()
+        isLoading = false
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Load Preset") },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (isLoading) {
+                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = AccentLightBlue)
+                    }
+                } else if (presets.isEmpty()) {
+                    Text("No presets found", color = TextSecondary)
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 400.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(presets, key = { it.name }) { preset ->
+                            val isSelected = preset.name == currentPreset
+                            val color = try {
+                                if (preset.iconColor != null) Color(android.graphics.Color.parseColor(preset.iconColor))
+                                else AccentLightBlue
+                            } catch (e: Exception) { AccentLightBlue }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) ItemBackgroundSelected else ItemBackground)
+                                    .clickable { onPresetSelected(preset.name) }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(color)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(preset.name, fontSize = 14.sp, color = TextPrimary)
+                                    if (preset.modifiedDate != null) {
+                                        Text(
+                                            preset.modifiedDate,
+                                            fontSize = 11.sp,
+                                            color = TextTertiary
+                                        )
+                                    }
+                                }
+                                if (isSelected) {
+                                    Icon(Icons.Default.Check, "Selected", tint = StatusActive, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = AccentLightBlue)
+            }
+        }
+    )
 }

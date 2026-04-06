@@ -1,39 +1,86 @@
-# Claude
+# Claude / AI tools
 CLAUDE.md
+AGENTS.md
 .gitignorenul
 /.claude
-AGENTS.md
 .env
 
-# Gradle
+##############################################################################
+# Android App — Build
+##############################################################################
 .gradle/
 android-app/.gradle/
 android-app/app/build/
 android-app/build/
+android-app/local.properties
 
+# Signing — NEVER commit keystore to git
+android-app/keystore.jks
+android-app/*.jks
+android-app/*.keystore
+*.jks
+*.keystore
+
+# Bundled module asset (generated at build time)
+android-app/app/src/main/assets/module.zip
+
+##############################################################################
 # Build outputs
+##############################################################################
 build/
 binaries/
+dist/
 *.apk
+*.zip
 
-# Xray binary
+##############################################################################
+# Xray binaries (downloaded at build time, not committed)
+##############################################################################
+zapret2/bin/arm64-v8a/nfqws2
+zapret2/bin/armeabi-v7a/nfqws2
 zapret2/bin/arm64-v8a/xray
 zapret2/bin/armeabi-v7a/xray
+zapret2/xray-arm64-v8a
+zapret2/xray-armeabi-v7a
 
+##############################################################################
+# Runtime / generated files
+##############################################################################
+zapret2/vpn-config.json
+zapret2/xray-config.json
+zapret2/vpn-subs-raw.txt
+zapret2/vpn-subs-haproxy.txt
+zapret2/vpn-servers.txt
+zapret2/*.pid
+zapret2/.last_network
+zapret2/.switch.lock
+zapret2/iptables-status
+zapret2/nfqws2-*
+
+##############################################################################
 # IDE
+##############################################################################
 .idea/
 *.iml
+*.ipr
+*.iws
+.vscode/
 
+##############################################################################
 # OS
+##############################################################################
 .DS_Store
 Thumbs.db
+desktop.ini
 
+##############################################################################
 # Logs
+##############################################################################
 *.log
 
-# Scripts (local build only)
-scripts/
-
+##############################################################################
 # Temporary
+##############################################################################
 /tmp/
 *.tmp
+*.bak

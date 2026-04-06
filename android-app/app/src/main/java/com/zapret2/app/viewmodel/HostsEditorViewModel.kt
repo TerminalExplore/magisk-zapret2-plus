@@ -7,6 +7,7 @@ import com.topjohnwu.superuser.Shell
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,29 +34,26 @@ class HostsEditorViewModel @Inject constructor(
     private val moduleHostsPath = "/data/adb/modules/zapret2/system/etc/hosts"
     private val systemHostsPath = "/system/etc/hosts"
 
-    init {
-        viewModelScope.launch {
-            loadHosts()
-        }
-    }
-
     fun loadHosts() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, actionsEnabled = false, error = null) }
             
             val result = withContext(Dispatchers.IO) {
                 try {
-                    val r = Shell.cmd("cat '$moduleHostsPath' 2>/dev/null").exec()
+                    // Try module path first
+                    var r = Shell.cmd("cat '$moduleHostsPath' 2>/dev/null").exec()
                     if (r.isSuccess && r.out.isNotEmpty()) {
-                        Result.success(r.out.joinToString("\n"))
-                    } else {
-                        val sysResult = Shell.cmd("cat '$systemHostsPath' 2>/dev/null").exec()
-                        if (sysResult.isSuccess && sysResult.out.isNotEmpty()) {
-                            Result.success(sysResult.out.joinToString("\n"))
-                        } else {
-                            Result.success("# Default hosts\n127.0.0.1 localhost\n::1 localhost\n")
-                        }
+                        return@withContext Result.success(r.out.joinToString("\n"))
                     }
+                    
+                    // Try system path
+                    r = Shell.cmd("cat '$systemHostsPath' 2>/dev/null").exec()
+                    if (r.isSuccess && r.out.isNotEmpty()) {
+                        return@withContext Result.success(r.out.joinToString("\n"))
+                    }
+                    
+                    // Default
+                    Result.success("# Default hosts\n127.0.0.1 localhost\n::1 localhost\n")
                 } catch (e: Exception) {
                     Result.failure(e)
                 }
@@ -99,26 +97,28 @@ class HostsEditorViewModel @Inject constructor(
                     val parentDir = moduleHostsPath.substringBeforeLast('/')
                     Shell.cmd("mkdir -p '$parentDir'").exec()
                     
-                    val result = Shell.cmd("echo '$content' > '$moduleHostsPath'").exec()
-                    
-                    if (!result.isSuccess) {
-                        val tmpFile = java.io.File.createTempFile("hosts_", ".tmp", context.cacheDir)
-                        try {
-                            tmpFile.writeText(content, Charsets.UTF_8)
-                            Shell.cmd("cp '${tmpFile.absolutePath}' '$moduleHostsPath'").exec()
-                        } finally {
-                            tmpFile.delete()
-                        }
+                    // Write using temp file to avoid shell escaping issues
+                    val tmpFile = java.io.File.createTempFile("hosts_", ".tmp", context.cacheDir)
+                    try {
+                        tmpFile.writeText(content, Charsets.UTF_8)
+                        val r = Shell.cmd("cp '${tmpFile.absolutePath}' '$moduleHostsPath' && chmod 644 '$moduleHostsPath'").exec()
+                        r.isSuccess
+                    } finally {
+                        tmpFile.delete()
                     }
-                    
-                    true
                 } catch (e: Exception) {
+                    e.printStackTrace()
                     false
                 }
             }
             
             _uiState.update { it.copy(isLoading = false, actionsEnabled = true) }
-            _snackbar.emit(if (saved) "Hosts file saved" else "Failed to save hosts file")
+            
+            if (saved) {
+                _snackbar.emit("Hosts file saved")
+            } else {
+                _snackbar.emit("Failed to save hosts file")
+            }
         }
     }
 }

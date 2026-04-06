@@ -4,11 +4,12 @@
 # Stops Xray VPN client
 ##########################################################################################
 
-MODDIR="${0%/*}/../.."
-ZAPRET_DIR="$MODDIR/zapret2"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ZAPRET_DIR="$(dirname "$SCRIPT_DIR")"
 LOGFILE="/data/local/tmp/zapret2-vpn.log"
 PIDFILE="$ZAPRET_DIR/xray.pid"
 TUNNEL_SCRIPT="$ZAPRET_DIR/scripts/vpn-tunnel.sh"
+CONFIG_FILE="$ZAPRET_DIR/xray-config.json"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [VPN] $1" >> "$LOGFILE"
@@ -56,22 +57,14 @@ main() {
         killed=1
     fi
     
-    local xray_pids=$(pgrep -f "xray" 2>/dev/null)
+    local xray_pids=$(pgrep -f "$CONFIG_FILE" 2>/dev/null)
     if [ -n "$xray_pids" ]; then
         for pid in $xray_pids; do
             kill_process "$pid" "Xray (orphan)"
         done
         killed=1
     fi
-    
-    local singbox_pids=$(pgrep -f "sing-box" 2>/dev/null)
-    if [ -n "$singbox_pids" ]; then
-        for pid in $singbox_pids; do
-            kill_process "$pid" "Singbox (orphan)"
-        done
-        killed=1
-    fi
-    
+
     stop_tunnel
     
     if [ "$killed" -eq 1 ]; then

@@ -126,7 +126,6 @@ set_core_config_defaults() {
     PORTS_UDP="123,443,50000:65535"
     PKT_OUT=20
     PKT_IN=10
-    STRATEGY_PRESET="youtube"
     PRESET_MODE="categories"
     PRESET_FILE="Default.txt"
     NFQWS_UID="0:0"
@@ -185,6 +184,12 @@ apply_runtime_core_overrides() {
             wifi_only)
                 WIFI_ONLY="$value"
                 ;;
+            debug)
+                DEBUG="$value"
+                ;;
+            qnum)
+                QNUM="$value"
+                ;;
             desync_mark)
                 DESYNC_MARK="$value"
                 ;;
@@ -199,9 +204,6 @@ apply_runtime_core_overrides() {
                 ;;
             pkt_in)
                 PKT_IN="$value"
-                ;;
-            strategy_preset)
-                STRATEGY_PRESET="$value"
                 ;;
             preset_mode)
                 PRESET_MODE="$value"
@@ -261,6 +263,11 @@ shell_config_sets_key() {
     grep -Eq "^[[:space:]]*${key}=" "$file_path" 2>/dev/null
 }
 
+rotate_log_if_needed() {
+    local logfile="$1"
+    [ $(wc -c < "$logfile" 2>/dev/null || echo 0) -gt 1048576 ] && > "$logfile"
+}
+
 # Remove all NFQUEUE rules for the configured queue from mangle OUTPUT/INPUT.
 # Handles both IPv4 (iptables) and IPv6 (ip6tables).
 remove_nfqueue_rules_by_qnum() {
@@ -317,7 +324,7 @@ remove_all_nfqueue_rules() {
                 case "$line" in
                     "-A $chain "*)
                         case "$line" in
-                            *"-j NFQUEUE"*"--queue-bypass"*)
+                            *"-j NFQUEUE"*)
                                 rule="${line#-A $chain }"
                                 if [ -n "$rule" ]; then
                                     # shellcheck disable=SC2086

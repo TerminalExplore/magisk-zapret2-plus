@@ -18,6 +18,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object AutoSwitch : Screen("auto_switch", "Auto-Switch", Icons.Default.SwapHoriz)
     object VpnSettings : Screen("vpn_settings", "VPN", Icons.Default.VpnKey)
     object AppFilter : Screen("app_filter", "App Filter", Icons.Default.Apps)
+    object ModuleManager : Screen("module_manager", "Module", Icons.Default.Extension)
     
     object HostlistContent : Screen("hostlist_content/{path}/{name}/{count}", "Hostlist", Icons.Default.List) {
         fun createRoute(path: String, name: String, count: Int): String {
@@ -27,7 +28,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 
     companion object {
         val mainScreens = listOf(Control, Strategies)
-        val configScreens = listOf(Presets, ConfigEditor, AutoSwitch, VpnSettings, AppFilter)
+        val configScreens = listOf(Presets, ConfigEditor, VpnSettings, AppFilter)
         val dataScreens = listOf(Hostlists, HostsEditor, DnsManager)
         val systemScreens = listOf(Logs, About)
     }

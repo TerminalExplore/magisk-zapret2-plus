@@ -1,15 +1,6 @@
 {
   "log": {
-    "loglevel": "warn",
-    "timestamp": true
-  },
-  "dns": {
-    "servers": [
-      "8.8.8.8",
-      "1.1.1.1",
-      "8.8.4.4",
-      "1.0.0.1"
-    ]
+    "loglevel": "warn"
   },
   "inbounds": [
     {
@@ -27,27 +18,18 @@
   "outbounds": [
     {
       "tag": "proxy",
-      "protocol": "${VPN_PROTOCOL}",
+      "protocol": "vless",
       "settings": {
         "vnext": [
           {
-            "address": "${VPN_SERVER}",
-            "port": ${VPN_PORT},
+            "address": "example.com",
+            "port": 443,
             "users": [
               {
-                "id": "${VLESS_UUID}",
-                "encryption": "none",
-                "flow": "${VLESS_FLOW}"
+                "id": "00000000-0000-0000-0000-000000000000",
+                "encryption": "none"
               }
             ]
-          }
-        ],
-        "servers": [
-          {
-            "address": "${VPN_SERVER}",
-            "port": ${VPN_PORT},
-            "method": "${SS_METHOD}",
-            "password": "${SS_PASSWORD}"
           }
         ]
       },
@@ -55,19 +37,13 @@
         "network": "tcp",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "${VLESS_SNI}",
-          "allowInsecure": false
+          "serverName": "example.com"
         }
       }
     },
     {
       "tag": "direct",
       "protocol": "freedom",
-      "settings": {}
-    },
-    {
-      "tag": "block",
-      "protocol": "blackhole",
       "settings": {}
     }
   ],
@@ -76,16 +52,7 @@
     "rules": [
       {
         "type": "field",
-        "ip": [
-          "geoip:private"
-        ],
-        "outboundTag": "direct"
-      },
-      {
-        "type": "field",
-        "protocol": [
-          "bittorrent"
-        ],
+        "ip": ["geoip:private"],
         "outboundTag": "direct"
       }
     ]

@@ -268,6 +268,43 @@ class ControlViewModel @Inject constructor(
         }
     }
 
+    fun toggleVpn() {
+        viewModelScope.launch {
+            val wasRunning = _uiState.value.vpnRunning
+            val script = if (wasRunning)
+                "$moduleDir/zapret2/scripts/vpn-stop.sh"
+            else
+                "$moduleDir/zapret2/scripts/vpn-start.sh"
+
+            val result = withContext(Dispatchers.IO) { Shell.cmd("sh $script").exec() }
+            delay(1500)
+            checkStatus()
+
+            val action = if (wasRunning) "stopped" else "started"
+            if (result.isSuccess) {
+                _events.emit(ControlEvent.ShowSnackbar("VPN $action"))
+                notifyStatusService()
+            } else {
+                _events.emit(ControlEvent.ShowSnackbar("Failed to $action VPN"))
+            }
+        }
+    }
+
+    private fun notifyStatusService() {
+        viewModelScope.launch {
+            val state = _uiState.value
+            val intent = android.content.Intent(
+                serviceEventBus.appContext,
+                com.zapret2.app.service.NetworkMonitorService::class.java
+            ).apply {
+                action = com.zapret2.app.service.NetworkMonitorService.ACTION_UPDATE_STATUS
+                putExtra(com.zapret2.app.service.NetworkMonitorService.EXTRA_ZAPRET_RUNNING, state.isRunning)
+                putExtra(com.zapret2.app.service.NetworkMonitorService.EXTRA_VPN_RUNNING, state.vpnRunning)
+            }
+            try { serviceEventBus.appContext.startService(intent) } catch (_: Exception) {}
+        }
+    }
+
     fun setAutostart(enabled: Boolean) {
         viewModelScope.launch {
             val success = RuntimeConfigStore.upsertCoreValue("autostart", if (enabled) "1" else "0")

@@ -131,6 +131,12 @@ for arch in arm64-v8a armeabi-v7a; do
     fi
 done
 
+# Reuse the bundled arm64 nfqws2 when the arch-specific slot is empty.
+if [ -f "zapret2/nfqws2" ] && [ ! -f "zapret2/bin/arm64-v8a/nfqws2" ]; then
+    mkdir -p "zapret2/bin/arm64-v8a"
+    cp "zapret2/nfqws2" "zapret2/bin/arm64-v8a/nfqws2"
+fi
+
 # Check for nfqws2
 MISSING_NFQWS=0
 for arch in arm64-v8a armeabi-v7a; do
@@ -168,6 +174,12 @@ done
 sed -i "s/^version=.*/version=v$VERSION/" module.prop
 sed -i "s/^versionCode=.*/versionCode=$VERSION_CODE/" module.prop
 
+# Update release metadata
+sed -i "s/\"version\": \".*\"/\"version\": \"v$VERSION\"/" update.json
+sed -i "s/\"versionCode\": [0-9]*/\"versionCode\": $VERSION_CODE/" update.json
+sed -i "s|\"zipUrl\": \".*\"|\"zipUrl\": \"https://github.com/TerminalExplore/magisk-zapret2-plus/releases/latest/download/zapret2-magisk-v$VERSION.zip\"|" update.json
+sed -i "s|\"changelog\": \".*\"|\"changelog\": \"https://github.com/TerminalExplore/magisk-zapret2-plus/releases/latest\"|" update.json
+
 # Make scripts executable
 chmod +x customize.sh service.sh uninstall.sh action.sh 2>/dev/null || true
 chmod +x zapret2/scripts/*.sh 2>/dev/null || true
@@ -190,7 +202,12 @@ zip -r "$OUTPUT_DIR/$ZIP_NAME" \
     -x "CLAUDE.md" \
     -x ".github/*" \
     -x "build.sh" \
-    -x "docs/*"
+    -x "docs/*" \
+    -x "zapret2/vpn-config.json" \
+    -x "zapret2/vpn-subs-raw.txt" \
+    -x "zapret2/vpn-subs-haproxy.txt" \
+    -x "zapret2/*.pid" \
+    -x "zapret2/iptables-status"
 
 echo ""
 echo "Build complete: $OUTPUT_DIR/$ZIP_NAME"

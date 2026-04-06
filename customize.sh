@@ -33,6 +33,7 @@ ui_print "- Installing Zapret2 for $ARCH_DIR"
 # Backup user settings before extraction (for updates)
 USER_CATEGORIES_INI_BAK="/data/local/tmp/zapret2-categories.ini.bak"
 USER_RUNTIME_INI_BAK="/data/local/tmp/zapret2-runtime.ini.bak"
+USER_VPN_CONFIG_BAK="/data/local/tmp/zapret2-vpn-config.env.bak"
 EXISTING_MODPATH="/data/adb/modules/zapret2"
 if [ -f "$EXISTING_MODPATH/zapret2/categories.ini" ]; then
     ui_print "- Backing up user strategy settings..."
@@ -41,6 +42,14 @@ fi
 if [ -f "$EXISTING_MODPATH/zapret2/runtime.ini" ]; then
     ui_print "- Backing up user runtime settings..."
     cp "$EXISTING_MODPATH/zapret2/runtime.ini" "$USER_RUNTIME_INI_BAK"
+fi
+if [ -f "$EXISTING_MODPATH/zapret2/vpn-config.env" ]; then
+    # Only backup if user has actually configured VPN (VPN_ENABLED=1 or has server set)
+    if grep -qE '^VPN_ENABLED=1|^VPN_SERVER="[^"]+"|^VPN_SUBSCRIPTION_URL="[^"]+"' \
+            "$EXISTING_MODPATH/zapret2/vpn-config.env" 2>/dev/null; then
+        ui_print "- Backing up VPN config..."
+        cp "$EXISTING_MODPATH/zapret2/vpn-config.env" "$USER_VPN_CONFIG_BAK"
+    fi
 fi
 
 # Create directories
@@ -71,10 +80,20 @@ if [ -f "$USER_RUNTIME_INI_BAK" ]; then
     ui_print "  [OK] Runtime settings preserved"
 fi
 
+# Restore VPN config if backup exists
+if [ -f "$USER_VPN_CONFIG_BAK" ]; then
+    ui_print "- Restoring VPN config..."
+    cp "$USER_VPN_CONFIG_BAK" "$MODPATH/zapret2/vpn-config.env"
+    rm -f "$USER_VPN_CONFIG_BAK"
+    ui_print "  [OK] VPN config preserved"
+fi
+
 # Copy architecture-specific binary
 if [ -f "$MODPATH/zapret2/bin/$ARCH_DIR/nfqws2" ]; then
     cp "$MODPATH/zapret2/bin/$ARCH_DIR/nfqws2" "$MODPATH/zapret2/nfqws2"
     ui_print "- Copied nfqws2 binary for $ARCH_DIR"
+elif [ "$ARCH_DIR" = "arm64-v8a" ] && [ -f "$MODPATH/zapret2/nfqws2" ]; then
+    ui_print "- Using bundled fallback nfqws2 binary for $ARCH_DIR"
 else
     ui_print "! Warning: nfqws2 binary not found for $ARCH_DIR"
     ui_print "! Please download from GitHub releases"
@@ -169,8 +188,8 @@ ui_print "===================================="
 ui_print " Zapret2 installed successfully!"
 ui_print "===================================="
 ui_print ""
-ui_print " WebUI: Install KSUWebUI app"
-ui_print "        and select Zapret2 module"
+ui_print " Control UI: Use the companion Android app"
+ui_print "             or terminal commands below"
 ui_print ""
 ui_print " Terminal commands:"
 ui_print "   zapret2-start          - Start Zapret2"

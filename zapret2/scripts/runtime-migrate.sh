@@ -17,7 +17,6 @@ set_default_config() {
     PORTS_UDP="123,443,50000:65535"
     PKT_OUT=20
     PKT_IN=10
-    STRATEGY_PRESET="youtube"
     PRESET_MODE="categories"
     PRESET_FILE="Default.txt"
     NFQWS_UID="0:0"
@@ -46,7 +45,6 @@ ports_tcp=${PORTS_TCP:-53,80,443}
 ports_udp=${PORTS_UDP:-123,443,50000:65535}
 pkt_out=${PKT_OUT:-20}
 pkt_in=${PKT_IN:-10}
-strategy_preset=${STRATEGY_PRESET:-youtube}
 preset_mode=${PRESET_MODE:-categories}
 preset_file=${PRESET_FILE:-Default.txt}
 nfqws_uid=${NFQWS_UID:-0:0}
