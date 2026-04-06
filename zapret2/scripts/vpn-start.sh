@@ -69,6 +69,34 @@ is_running() {
     return $?
 }
 
+wait_for_network() {
+    local max_wait=30
+    local waited=0
+    while [ $waited -lt $max_wait ]; do
+        if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+    return 1
+}
+
+check_rate_limit() {
+    local fail_file="$ZAPRET_DIR/.vpn_fail_time"
+    local now=$(date +%s)
+    local last_fail=0
+    
+    [ -f "$fail_file" ] && last_fail=$(cat "$fail_file" 2>/dev/null || echo 0)
+    
+    if [ $((now - last_fail)) -lt 60 ]; then
+        log "Rate limited: last failure was $((now - last_fail))s ago, waiting..."
+        return 1
+    fi
+    
+    return 0
+}
+
 prepare_config() {
     if [ -n "$VPN_SELECTED_URI" ]; then
         log "Using selected server URI from subscription"
@@ -86,6 +114,8 @@ prepare_config() {
     fi
     
     if [ -n "$VPN_SUBSCRIPTION_URL" ]; then
+        log "Waiting for network..."
+        wait_for_network || log "Network not ready, proceeding anyway"
         log "Fetching subscription from: $VPN_SUBSCRIPTION_URL"
         "$PARSER_SCRIPT" import "$VPN_SUBSCRIPTION_URL"
         
@@ -162,6 +192,8 @@ main() {
     rotate_log
     log "=== VPN Start ==="
     
+    check_rate_limit || return 1
+    
     if is_running; then
         log "VPN already running (PID: $(cat $PIDFILE))"
         echo "VPN already running (PID: $(cat $PIDFILE))"
@@ -180,11 +212,13 @@ main() {
     start_xray "$xray_binary" || return 1
     
     if is_running; then
-        log "=== VPN Started Successfully ==="
+        log "VPN started successfully (PID: $(cat $PIDFILE))"
         echo "VPN started (PID: $(cat $PIDFILE))"
+        rm -f "$ZAPRET_DIR/.vpn_fail_time" 2>/dev/null
         return 0
     else
         log "=== VPN Start Failed ==="
+        echo $(date +%s) > "$ZAPRET_DIR/.vpn_fail_time"
         return 1
     fi
 }

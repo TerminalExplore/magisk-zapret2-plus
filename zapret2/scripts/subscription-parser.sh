@@ -535,20 +535,30 @@ apply_env_config() {
 
 fetch_subscription() {
     local url="$1"
+    local curl_output curl_error
 
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL --connect-timeout 15 --max-time 30 \
+        log "Using curl for fetch"
+        curl_error=$(curl -fsSL --connect-timeout 15 --max-time 30 \
             -H "User-Agent: Mozilla/5.0 (Android 14)" \
             -H "Accept: */*" \
-            "$url" 2>/dev/null
-        return $?
+            "$url" 2>&1)
+        if [ $? -eq 0 ]; then
+            printf '%s' "$curl_error"
+            return 0
+        else
+            log "curl error: $curl_error"
+            return 1
+        fi
     fi
 
     if command -v wget >/dev/null 2>&1; then
+        log "Using wget for fetch"
         wget -qO- --timeout=30 "$url" 2>/dev/null
         return $?
     fi
 
+    log "Neither curl nor wget available"
     return 1
 }
 
