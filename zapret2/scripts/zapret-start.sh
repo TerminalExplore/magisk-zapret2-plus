@@ -150,7 +150,6 @@ load_config() {
     log_debug "QNUM=$QNUM"
     log_debug "PORTS_TCP=$PORTS_TCP"
     log_debug "PORTS_UDP=$PORTS_UDP"
-    log_debug "STRATEGY_PRESET=$STRATEGY_PRESET"
     log_debug "PRESET_MODE=$PRESET_MODE"
     log_debug "PRESET_FILE=$PRESET_FILE"
     log_debug "NFQWS_UID=${NFQWS_UID:-<root>}"
@@ -921,6 +920,7 @@ show_error_details() {
 ##########################################################################################
 
 main() {
+    rotate_log_if_needed "$LOGFILE"
     log_section "Starting Zapret2 DPI bypass"
     log_msg "Script version: 2.0"
     log_msg "Date: $(date)"

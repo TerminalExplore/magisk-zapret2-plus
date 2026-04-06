@@ -22,8 +22,16 @@ class NetworkMonitorService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "zapret2_network"
+        private const val CHANNEL_ID_ZAPRET = "zapret2_status"
+        private const val CHANNEL_ID_VPN = "zapret2_vpn_status"
         private const val NOTIFICATION_ID = 1001
+        const val NOTIFICATION_ID_ZAPRET = 1002
+        const val NOTIFICATION_ID_VPN = 1003
         private const val TAG = "NetworkMonitor"
+
+        const val ACTION_UPDATE_STATUS = "com.zapret2.app.UPDATE_STATUS"
+        const val EXTRA_ZAPRET_RUNNING = "zapret_running"
+        const val EXTRA_VPN_RUNNING = "vpn_running"
     }
 
     private lateinit var connectivityManager: ConnectivityManager
@@ -31,9 +39,7 @@ class NetworkMonitorService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        
-        createNotificationChannel()
-        
+        createNotificationChannels()
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         
         networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -58,7 +64,16 @@ class NetworkMonitorService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, createNotification("Monitoring network..."))
+        when (intent?.action) {
+            ACTION_UPDATE_STATUS -> {
+                val zapretRunning = intent.getBooleanExtra(EXTRA_ZAPRET_RUNNING, false)
+                val vpnRunning = intent.getBooleanExtra(EXTRA_VPN_RUNNING, false)
+                updateStatusNotifications(zapretRunning, vpnRunning)
+                return START_STICKY
+            }
+        }
+
+        startForeground(NOTIFICATION_ID, createMonitorNotification("Monitoring network..."))
         
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -86,85 +101,120 @@ class NetworkMonitorService : Service() {
 
     private fun handleNetworkChange(network: Network) {
         val capabilities = connectivityManager.getNetworkCapabilities(network)
-        
         when {
-            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> {
-                switchToWifiMode()
-            }
-            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> {
-                switchToMobileMode()
-            }
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> switchToWifiMode()
+            capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> switchToMobileMode()
         }
     }
 
     private fun handleNetworkLost() {
-        updateNotification("No network connection")
+        updateMonitorNotification("No network connection")
         stopAllServices()
     }
 
     private fun switchToWifiMode() {
-        updateNotification("WiFi connected - Using Zapret2")
-        
+        updateMonitorNotification("WiFi — Zapret2 active")
         Shell.cmd("su -c zapret2-vpn-stop 2>/dev/null || true").exec()
         sleep(1000)
         Shell.cmd("su -c zapret2-stop 2>/dev/null || true").exec()
         sleep(500)
         Shell.cmd("su -c zapret2-start").exec()
+        updateStatusNotifications(zapretRunning = true, vpnRunning = false)
     }
 
     private fun switchToMobileMode() {
-        updateNotification("Mobile connected - Using VPN")
-        
+        updateMonitorNotification("Mobile — VPN active")
         Shell.cmd("su -c zapret2-stop 2>/dev/null || true").exec()
         sleep(1000)
         Shell.cmd("su -c zapret2-vpn-stop 2>/dev/null || true").exec()
         sleep(500)
         Shell.cmd("su -c zapret2-vpn-start").exec()
+        updateStatusNotifications(zapretRunning = false, vpnRunning = true)
     }
 
     private fun stopAllServices() {
         Shell.cmd("su -c zapret2-stop 2>/dev/null || true").exec()
         Shell.cmd("su -c zapret2-vpn-stop 2>/dev/null || true").exec()
+        updateStatusNotifications(zapretRunning = false, vpnRunning = false)
     }
 
-    private fun createNotificationChannel() {
+    private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Network Monitor",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Monitors network changes for auto-switch"
-                setShowBadge(false)
-            }
-            
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            manager.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, "Network Monitor", NotificationManager.IMPORTANCE_LOW).apply {
+                    description = "Auto-switch network monitor"
+                    setShowBadge(false)
+                }
+            )
+            manager.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID_ZAPRET, "Zapret2 Status", NotificationManager.IMPORTANCE_LOW).apply {
+                    description = "Shows Zapret2 DPI bypass status"
+                    setShowBadge(false)
+                }
+            )
+            manager.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID_VPN, "VPN Status", NotificationManager.IMPORTANCE_LOW).apply {
+                    description = "Shows VPN connection status"
+                    setShowBadge(false)
+                }
+            )
         }
     }
 
-    private fun createNotification(text: String): Notification {
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE
-        )
-        
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun pendingMainIntent(): PendingIntent = PendingIntent.getActivity(
+        this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+    )
+
+    private fun createMonitorNotification(text: String): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Zapret2 Auto-Switch")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_share)
-            .setContentIntent(pendingIntent)
+            .setSmallIcon(R.drawable.ic_network)
+            .setContentIntent(pendingMainIntent())
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
+
+    private fun updateMonitorNotification(text: String) {
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_ID, createMonitorNotification(text))
     }
 
-    private fun updateNotification(text: String) {
-        val notification = createNotification(text)
+    fun updateStatusNotifications(zapretRunning: Boolean, vpnRunning: Boolean) {
         val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(NOTIFICATION_ID, notification)
+
+        if (zapretRunning) {
+            manager.notify(
+                NOTIFICATION_ID_ZAPRET,
+                NotificationCompat.Builder(this, CHANNEL_ID_ZAPRET)
+                    .setContentTitle("Zapret2 active")
+                    .setContentText("DPI bypass is running")
+                    .setSmallIcon(R.drawable.ic_shield)
+                    .setContentIntent(pendingMainIntent())
+                    .setOngoing(true)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build()
+            )
+        } else {
+            manager.cancel(NOTIFICATION_ID_ZAPRET)
+        }
+
+        if (vpnRunning) {
+            manager.notify(
+                NOTIFICATION_ID_VPN,
+                NotificationCompat.Builder(this, CHANNEL_ID_VPN)
+                    .setContentTitle("VPN active")
+                    .setContentText("VPN tunnel is running")
+                    .setSmallIcon(R.drawable.ic_shield)
+                    .setContentIntent(pendingMainIntent())
+                    .setOngoing(true)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build()
+            )
+        } else {
+            manager.cancel(NOTIFICATION_ID_VPN)
+        }
     }
 
     private fun sleep(ms: Long) {

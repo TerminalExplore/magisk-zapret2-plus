@@ -182,6 +182,52 @@ fun ControlScreen(viewModel: ControlViewModel = hiltViewModel()) {
                 }
             }
 
+            // VPN control card
+            item {
+                SectionHeader("VPN")
+                FluentCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StatusIndicator(isActive = state.vpnRunning, size = 12.dp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (state.vpnRunning) "VPN: Running" else "VPN: Stopped",
+                                fontSize = 16.sp,
+                                color = if (state.vpnRunning) StatusActive else TextSecondary
+                            )
+                            Text(
+                                text = if (state.vpnEnabled) "Enabled in config" else "Disabled in config",
+                                fontSize = 12.sp,
+                                color = TextTertiary
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val vpnBtnColor by animateColorAsState(
+                        if (state.vpnRunning) BtnDanger else BtnSuccess, label = "vpnBtn"
+                    )
+                    Button(
+                        onClick = { viewModel.toggleVpn() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = state.vpnEnabled,
+                        colors = ButtonDefaults.buttonColors(containerColor = vpnBtnColor)
+                    ) {
+                        Text(
+                            if (state.vpnRunning) "Stop VPN" else "Start VPN",
+                            color = TextPrimary
+                        )
+                    }
+                    if (!state.vpnEnabled) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "Enable VPN in VPN settings first",
+                            fontSize = 11.sp,
+                            color = TextTertiary
+                        )
+                    }
+                }
+            }
+
             // Module info
             item {
                 SectionHeader("MODULE")

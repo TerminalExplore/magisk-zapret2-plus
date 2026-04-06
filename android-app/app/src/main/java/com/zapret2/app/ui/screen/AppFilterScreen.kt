@@ -1,5 +1,7 @@
 package com.zapret2.app.ui.screen
 
+import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
@@ -28,7 +30,7 @@ data class AppInfo(
     val packageName: String,
     val appName: String,
     val icon: Drawable? = null,
-    val isSelected: Boolean = false
+    val isSystem: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,66 +43,71 @@ fun AppFilterScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     var wifiEnabled by remember { mutableStateOf(false) }
     var mobileEnabled by remember { mutableStateOf(false) }
-    var wifiApps by remember { mutableStateOf(setOf<String>()) }
-    var mobileApps by remember { mutableStateOf(setOf<String>()) }
+    var wifiApps by remember { mutableStateOf(emptySet<String>()) }
+    var mobileApps by remember { mutableStateOf(emptySet<String>()) }
     var isLoading by remember { mutableStateOf(true) }
     var installedApps by remember { mutableStateOf(listOf<AppInfo>()) }
     var searchQuery by remember { mutableStateOf("") }
-    var selectedApps by remember { mutableStateOf(setOf<String>()) }
+    var selectedApps by remember { mutableStateOf(emptySet<String>()) }
 
-    LaunchedEffect(selectedTab, wifiApps, mobileApps) {
-        selectedApps = if (selectedTab == 0) wifiApps else mobileApps
-    }
-
+    // Load apps on first composition
     LaunchedEffect(Unit) {
         scope.launch(Dispatchers.IO) {
-            isLoading = true
-            val pm = context.packageManager
-            
-            val apps = mutableListOf<AppInfo>()
-            
             try {
-                val installedPackages = pm.getInstalledApplications(
-                    PackageManager.GET_META_DATA or PackageManager.GET_SHARED_LIBRARY_FILES
-                )
-                
-                for (appInfo in installedPackages) {
-                    if (appInfo.packageName.startsWith("com.android.") ||
-                        appInfo.packageName.startsWith("com.google.android.input") ||
-                        appInfo.packageName.startsWith("com.android.launcher") ||
-                        appInfo.packageName.startsWith("com.android.systemui") ||
-                        appInfo.packageName == "com.zapret2.app") {
-                        continue
-                    }
-                    
-                    try {
-                        val appName = pm.getApplicationLabel(appInfo).toString()
-                        val icon = try {
-                            pm.getApplicationIcon(appInfo.packageName)
-                        } catch (e: Exception) {
-                            null
+                val pm = context.packageManager
+
+                // queryIntentActivities с CATEGORY_LAUNCHER гарантированно возвращает
+                // все приложения видимые в лаунчере, включая пользовательские
+                val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                }
+                val apps = pm.queryIntentActivities(launcherIntent, 0)
+                    .map { it.activityInfo.applicationInfo }
+                    .distinctBy { it.packageName }
+                    .filter { app -> app.packageName != "com.zapret2.app" }
+                    .map { app ->
+                        try {
+                            AppInfo(
+                                packageName = app.packageName,
+                                appName = pm.getApplicationLabel(app).toString(),
+                                icon = try { pm.getApplicationIcon(app.packageName) } catch (_: Exception) { null },
+                                isSystem = (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                            )
+                        } catch (_: Exception) {
+                            AppInfo(app.packageName, app.packageName, null, true)
                         }
-                        apps.add(AppInfo(appInfo.packageName, appName, icon))
-                    } catch (e: Exception) {
-                        apps.add(AppInfo(appInfo.packageName, appInfo.packageName, null))
                     }
+                    .sortedWith(compareBy({ it.isSystem }, { it.appName.lowercase() }))
+
+                withContext(Dispatchers.Main) {
+                    installedApps = apps
+                    isLoading = false
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                withContext(Dispatchers.Main) { isLoading = false }
             }
-            
-            installedApps = apps.sortedBy { it.appName.lowercase() }
-            
+        }
+    }
+
+    // Load settings
+    LaunchedEffect(Unit) {
+        scope.launch(Dispatchers.IO) {
             loadSettings(
                 onWifiEnabledLoaded = { wifiEnabled = it },
                 onMobileEnabledLoaded = { mobileEnabled = it },
                 onWifiAppsLoaded = { wifiApps = it },
                 onMobileAppsLoaded = { mobileApps = it }
             )
-            isLoading = false
         }
     }
 
+    // Update selectedApps when tab changes
+    LaunchedEffect(selectedTab) {
+        selectedApps = if (selectedTab == 0) wifiApps else mobileApps
+    }
+
+    // Filter apps by search
     val filteredApps = remember(installedApps, searchQuery) {
         if (searchQuery.isBlank()) {
             installedApps
@@ -167,7 +174,7 @@ fun AppFilterScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 item {
@@ -192,12 +199,9 @@ fun AppFilterScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = if (enabled) "Enabled" else "Disabled",
+                                        text = "${selectedApps.size} apps selected",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = if (enabled)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                                 Switch(
@@ -205,21 +209,22 @@ fun AppFilterScreen(
                                     onCheckedChange = onEnabledChange
                                 )
                             }
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            Text(
-                                text = "Selected: ${selectedApps.size} apps",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
                 }
 
-                items(filteredApps) { app ->
+                item {
+                    Text(
+                        text = "${filteredApps.size} apps available",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+
+                items(filteredApps, key = { it.packageName }) { app ->
                     val isSelected = selectedApps.contains(app.packageName)
-                    val onToggle = { selected: Boolean ->
+                    val onToggle: (Boolean) -> Unit = { selected ->
                         val newSet = if (selected) {
                             selectedApps + app.packageName
                         } else {
@@ -229,10 +234,10 @@ fun AppFilterScreen(
                         
                         if (selectedTab == 0) {
                             wifiApps = newSet
-                            saveWifiApps(newSet)
+                            scope.launch(Dispatchers.IO) { saveWifiApps(newSet) }
                         } else {
                             mobileApps = newSet
-                            saveMobileApps(newSet)
+                            scope.launch(Dispatchers.IO) { saveMobileApps(newSet) }
                         }
                     }
 
@@ -243,7 +248,7 @@ fun AppFilterScreen(
                     )
                 }
 
-                if (filteredApps.isEmpty() && searchQuery.isNotEmpty()) {
+                if (filteredApps.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier
@@ -253,14 +258,14 @@ fun AppFilterScreen(
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
-                                    Icons.Default.SearchOff,
+                                    if (searchQuery.isNotEmpty()) Icons.Default.SearchOff else Icons.Default.Apps,
                                     contentDescription = null,
                                     modifier = Modifier.size(48.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    "No apps found",
+                                    if (searchQuery.isNotEmpty()) "No apps found" else "No apps installed",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -308,7 +313,7 @@ private fun AppFilterItem(
                     )
                 }
                 
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = app.appName,
                         style = MaterialTheme.typography.bodyLarge,
@@ -338,12 +343,12 @@ private suspend fun loadSettings(
     onMobileAppsLoaded: (Set<String>) -> Unit
 ) {
     withContext(Dispatchers.IO) {
-        val result = Shell.cmd(
-            "cat /data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
-        ).exec()
+        try {
+            val result = Shell.cmd(
+                "cat /data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null || echo ''"
+            ).exec()
 
-        if (result.isSuccess) {
-            val content = result.out.joinToString("\n")
+            val content = if (result.isSuccess) result.out.joinToString("\n") else ""
             
             val wifiEnabledVal = content.contains("WIFI_APP_FILTER=1")
             val mobileEnabledVal = content.contains("MOBILE_APP_FILTER=1")
@@ -365,6 +370,12 @@ private suspend fun loadSettings(
             onMobileEnabledLoaded(mobileEnabledVal)
             onWifiAppsLoaded(wifiAppsVal)
             onMobileAppsLoaded(mobileAppsVal)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            onWifiEnabledLoaded(false)
+            onMobileEnabledLoaded(false)
+            onWifiAppsLoaded(emptySet())
+            onMobileAppsLoaded(emptySet())
         }
     }
 }
@@ -372,14 +383,16 @@ private suspend fun loadSettings(
 private fun saveWifiEnabled(enabled: Boolean) {
     Shell.cmd(
         "sed -i 's/WIFI_APP_FILTER=[01]/WIFI_APP_FILTER=${if (enabled) 1 else 0}/' " +
-        "/data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
+        "/data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null || " +
+        "echo 'WIFI_APP_FILTER=${if (enabled) 1 else 0}' >> /data/adb/modules/zapret2/zapret2/app-filter.ini"
     ).exec()
 }
 
 private fun saveMobileEnabled(enabled: Boolean) {
     Shell.cmd(
         "sed -i 's/MOBILE_APP_FILTER=[01]/MOBILE_APP_FILTER=${if (enabled) 1 else 0}/' " +
-        "/data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
+        "/data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null || " +
+        "echo 'MOBILE_APP_FILTER=${if (enabled) 1 else 0}' >> /data/adb/modules/zapret2/zapret2/app-filter.ini"
     ).exec()
 }
 
@@ -387,7 +400,8 @@ private fun saveWifiApps(apps: Set<String>) {
     val appsStr = apps.joinToString(" ")
     Shell.cmd(
         "sed -i 's/WIFI_APPS=\"[^\"]*\"/WIFI_APPS=\"$appsStr\"/' " +
-        "/data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
+        "/data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null || " +
+        "echo 'WIFI_APPS=\"$appsStr\"' >> /data/adb/modules/zapret2/zapret2/app-filter.ini"
     ).exec()
 }
 
@@ -395,6 +409,7 @@ private fun saveMobileApps(apps: Set<String>) {
     val appsStr = apps.joinToString(" ")
     Shell.cmd(
         "sed -i 's/MOBILE_APPS=\"[^\"]*\"/MOBILE_APPS=\"$appsStr\"/' " +
-        "/data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null"
+        "/data/adb/modules/zapret2/zapret2/app-filter.ini 2>/dev/null || " +
+        "echo 'MOBILE_APPS=\"$appsStr\"' >> /data/adb/modules/zapret2/zapret2/app-filter.ini"
     ).exec()
 }

@@ -17,9 +17,6 @@ DEBUG=0
 PKT_OUT=20
 PKT_IN=10
 
-# Strategy preset to use
-STRATEGY_PRESET=syndata_multisplit_tls_google_700
-
 # Runtime mode:
 # - categories: build command from categories.ini + strategies-*.ini
 # - file: load full command blocks from presets/*.txt (Windows-style preset files)

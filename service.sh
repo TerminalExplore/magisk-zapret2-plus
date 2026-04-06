@@ -3,12 +3,29 @@
 # Zapret2 Magisk Module - Service Script (runs at boot)
 ##########################################################################################
 
-MODDIR="${0%/*}"
+MODDIR="$(cd "${0%/*}" && pwd)"
 LOGFILE="/data/local/tmp/zapret2.log"
 
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOGFILE"
     /system/bin/log -t "Zapret2" "$1" 2>/dev/null
+}
+
+wifi_is_up() {
+    if [ -f /sys/class/net/wlan0/operstate ]; then
+        [ "$(cat /sys/class/net/wlan0/operstate 2>/dev/null)" = "up" ] && return 0
+    fi
+
+    if command -v ip >/dev/null 2>&1; then
+        ip link show wlan0 2>/dev/null | grep -q "state UP" && return 0
+        ip link show wlan1 2>/dev/null | grep -q "state UP" && return 0
+    fi
+
+    if command -v dumpsys >/dev/null 2>&1; then
+        dumpsys connectivity 2>/dev/null | grep -i "WIFI" | grep -qi "state: CONNECTED" && return 0
+    fi
+
+    return 1
 }
 
 log "=== Zapret2 service starting ==="
@@ -70,24 +87,31 @@ log "$(bootstrap_fallback_message)"
 log "Category state source: $CATEGORIES_FILE"
 
 # Check for auto-switch mode
-if [ "$AUTO_SWITCH" = "1" ]; then
-    log "=== AUTO-SWITCH MODE ENABLED ==="
-    log "WiFi → Zapret2"
-    log "Mobile → VPN"
-    
-    if [ "$VPN_ENABLED" != "1" ]; then
-        log "WARNING: AUTO_SWITCH enabled but VPN not configured (VPN_ENABLED=0)"
-        log "Falling back to standard Zapret2 mode"
-        if [ "$AUTOSTART" = "1" ]; then
+if [ -f "$ZAPRET_DIR/vpn-config.env" ]; then
+    . "$ZAPRET_DIR/vpn-config.env"
+fi
+
+# Resolve effective mode (VPN_MODE takes priority, AUTO_SWITCH for backward compat)
+EFFECTIVE_VPN_MODE="${VPN_MODE:-off}"
+if [ "$EFFECTIVE_VPN_MODE" = "off" ] && [ "${AUTO_SWITCH:-0}" = "1" ]; then
+    EFFECTIVE_VPN_MODE="mobile"
+fi
+
+if [ "$EFFECTIVE_VPN_MODE" != "off" ] && [ "$VPN_ENABLED" = "1" ]; then
+    log "=== VPN_MODE=$EFFECTIVE_VPN_MODE — starting network monitor ==="
+    "$ZAPRET_DIR/scripts/network-monitor.sh"
+elif [ "$AUTOSTART" = "1" ]; then
+    if [ "$WIFI_ONLY" = "1" ]; then
+        if ! wifi_is_up; then
+            log "Autostart skipped because WIFI_ONLY=1 and WiFi is not connected"
+        else
+            log "Autostart enabled in WiFi-only mode, launching zapret2..."
             "$ZAPRET_DIR/scripts/zapret-start.sh"
         fi
     else
-        log "Starting network monitor for auto-switch..."
-        "$ZAPRET_DIR/scripts/network-monitor.sh"
+        log "Autostart enabled, launching zapret2..."
+        "$ZAPRET_DIR/scripts/zapret-start.sh"
     fi
-elif [ "$AUTOSTART" = "1" ]; then
-    log "Autostart enabled, launching zapret2..."
-    "$ZAPRET_DIR/scripts/zapret-start.sh"
 else
     log "Autostart disabled in effective core config ($CORE_CONFIG_SOURCE)"
 fi

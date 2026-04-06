@@ -22,6 +22,7 @@ log() { echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
 pass() { echo -e "${GREEN}✓ PASS${NC}: $1"; ((PASSED++)); }
 fail() { echo -e "${RED}✗ FAIL${NC}: $1"; ((FAILED++)); }
 skip() { echo -e "${YELLOW}⊘ SKIP${NC}: $1"; ((SKIPPED++)); }
+warn() { echo -e "${YELLOW}! WARN${NC}: $1"; }
 
 cleanup() {
     rm -f "$LOG_FILE" /tmp/zapret2-test-*.sh 2>/dev/null || true
@@ -41,12 +42,24 @@ test_subscription_parser() {
     header "subscription-parser.sh Tests"
     
     local script="$SCRIPT_DIR/zapret2/scripts/subscription-parser.sh"
+    local xray_backup="/tmp/zapret2-xray-config.backup.$$"
+    local raw_backup="/tmp/zapret2-vpn-subs-raw.backup.$$"
     
     if [ ! -f "$script" ]; then
         skip "subscription-parser.sh not found"
         return
     fi
+
+    cp "$SCRIPT_DIR/zapret2/xray-config.json" "$xray_backup" 2>/dev/null || true
+    cp "$SCRIPT_DIR/zapret2/vpn-subs-raw.txt" "$raw_backup" 2>/dev/null || true
+    rm -f "$SCRIPT_DIR/zapret2/vpn-config.json" 2>/dev/null || true
     
+    if bash -n "$script" 2>/dev/null; then
+        pass "subscription-parser.sh syntax is valid"
+    else
+        fail "subscription-parser.sh syntax is invalid"
+    fi
+
     # Test: is_base64 detection
     log "Testing base64 detection..."
     
@@ -77,6 +90,52 @@ test_subscription_parser() {
     
     [ "$server" = "server.com" ] && pass "Server extraction works" || fail "Server extraction failed"
     [ "$port" = "443" ] && pass "Port extraction works" || fail "Port extraction failed"
+
+    if bash "$script" vless "$test_uri" >/dev/null 2>&1; then
+        pass "VLESS URI converts into Xray config"
+    else
+        fail "VLESS URI conversion failed"
+    fi
+
+    local import_file="/tmp/zapret2-subscription-import.$$"
+    local urlsafe_base64
+    urlsafe_base64="$(printf '%s' "$test_uri" | base64 | tr -d '\n' | tr '+/' '-_')"
+    printf '%s\n' "$urlsafe_base64" > "$import_file"
+
+    if bash "$script" import-file "$import_file" >/dev/null 2>&1; then
+        pass "import-file handles URL-safe base64 subscriptions"
+    else
+        fail "import-file failed on URL-safe base64 subscription"
+    fi
+
+    if [ -f "$SCRIPT_DIR/zapret2/vpn-config.json" ] && grep -q '"protocol": "vless"' "$SCRIPT_DIR/zapret2/vpn-config.json"; then
+        pass "import-file writes a VLESS Xray config"
+    else
+        fail "import-file did not generate expected Xray config"
+    fi
+
+    local payload_b64
+    payload_b64="$(printf '%s' "$test_uri" | base64 | tr -d '\n')"
+
+    if bash "$script" import-b64 "$payload_b64" >/dev/null 2>&1; then
+        pass "import-b64 handles direct base64 payload"
+    else
+        fail "import-b64 failed on direct base64 payload"
+    fi
+
+    rm -f "$import_file"
+
+    if [ -f "$xray_backup" ]; then
+        cp "$xray_backup" "$SCRIPT_DIR/zapret2/xray-config.json"
+        rm -f "$xray_backup"
+    fi
+    if [ -f "$raw_backup" ]; then
+        cp "$raw_backup" "$SCRIPT_DIR/zapret2/vpn-subs-raw.txt"
+        rm -f "$raw_backup"
+    else
+        rm -f "$SCRIPT_DIR/zapret2/vpn-subs-raw.txt" 2>/dev/null || true
+    fi
+    rm -f "$SCRIPT_DIR/zapret2/vpn-config.json" 2>/dev/null || true
 }
 
 ##########################################################################################
@@ -92,6 +151,18 @@ test_network_monitor() {
         return
     fi
     
+    if grep -q 'PIDFILE' "$script"; then
+        pass "Network monitor uses shared Zapret PID file"
+    else
+        fail "Network monitor does not use shared Zapret PID file"
+    fi
+
+    if grep -q 'print_status()' "$script" && grep -q 'stop_monitor()' "$script"; then
+        pass "Network monitor exposes status and stop helpers"
+    else
+        fail "Network monitor is missing status/stop helpers"
+    fi
+
     # Test: Network detection logic (mocked)
     log "Testing network detection logic..."
     
@@ -102,6 +173,32 @@ test_network_monitor() {
     # Simulate mobile interface check
     local mock_rmnet_state="down"
     [ "$mock_rmnet_state" = "up" ] && fail "Mobile state should be down" || pass "Mobile state check works"
+}
+
+##########################################################################################
+# Test: vpn-start.sh behavior
+##########################################################################################
+test_vpn_start() {
+    header "vpn-start.sh Tests"
+
+    local script="$SCRIPT_DIR/zapret2/scripts/vpn-start.sh"
+
+    if [ ! -f "$script" ]; then
+        skip "vpn-start.sh not found"
+        return
+    fi
+
+    if bash -n "$script" 2>/dev/null; then
+        pass "vpn-start.sh syntax is valid"
+    else
+        fail "vpn-start.sh syntax is invalid"
+    fi
+
+    if grep -q 'VPN_SELECTED_URI' "$script"; then
+        pass "vpn-start.sh prefers selected subscription server"
+    else
+        fail "vpn-start.sh does not use VPN_SELECTED_URI"
+    fi
 }
 
 ##########################################################################################
@@ -121,6 +218,12 @@ test_app_filter() {
         grep -q "WIFI_APP_FILTER=" "$config" && pass "WIFI_APP_FILTER defined" || fail "WIFI_APP_FILTER not defined"
         grep -q "MOBILE_APP_FILTER=" "$config" && pass "MOBILE_APP_FILTER defined" || fail "MOBILE_APP_FILTER not defined"
         grep -q "WIFI_APPS=" "$config" && pass "WIFI_APPS defined" || fail "WIFI_APPS not defined"
+    fi
+
+    if bash -n "$script" 2>/dev/null; then
+        pass "app-filter.sh syntax is valid"
+    else
+        fail "app-filter.sh syntax is invalid"
     fi
     
     # Test: Package name validation
@@ -170,9 +273,52 @@ test_xray_config() {
         grep -q '"outbounds"' "$config" && pass "outbounds defined" || fail "outbounds not defined"
         grep -q '"log"' "$config" && pass "log defined" || fail "log not defined"
         grep -q '"routing"' "$config" && pass "routing defined" || fail "routing not defined"
+        grep -q '\${' "$config" && fail "xray-config.json still has unresolved placeholders" || pass "xray-config.json has no unresolved placeholders"
         
         # Check for tun interface
         grep -q "tun0" "$config" && pass "tun0 interface configured" || fail "tun0 not configured"
+    fi
+}
+
+##########################################################################################
+# Test: runtime.ini compatibility
+##########################################################################################
+test_runtime_config() {
+    header "runtime.ini Tests"
+
+    local runtime="$SCRIPT_DIR/zapret2/runtime.ini"
+    local common="$SCRIPT_DIR/zapret2/scripts/common.sh"
+
+    [ -f "$runtime" ] && pass "runtime.ini exists" || fail "runtime.ini not found"
+    grep -q '^qnum=' "$runtime" && pass "qnum defined" || fail "qnum not defined"
+    grep -q '^debug=' "$runtime" && pass "debug defined" || fail "debug not defined"
+
+    if grep -q 'QNUM="$value"' "$common" && grep -q 'DEBUG="$value"' "$common"; then
+        pass "runtime parser handles qnum and debug"
+    else
+        fail "runtime parser misses qnum/debug"
+    fi
+}
+
+##########################################################################################
+# Test: categories.ini file references
+##########################################################################################
+test_category_references() {
+    header "categories.ini Reference Tests"
+
+    local categories="$SCRIPT_DIR/zapret2/categories.ini"
+    local missing=0
+
+    while IFS= read -r entry; do
+        [ -z "$entry" ] && continue
+        if [ ! -f "$SCRIPT_DIR/zapret2/lists/$entry" ]; then
+            fail "Missing list referenced by categories.ini: $entry"
+            missing=1
+        fi
+    done < <(awk -F= '/^(hostlist|ipset)=/ {print $2}' "$categories" | sed '/^$/d' | sort -u)
+
+    if [ "$missing" -eq 0 ]; then
+        pass "All category list references resolve"
     fi
 }
 
@@ -226,11 +372,13 @@ test_permissions() {
     for entry in "${scripts[@]}"; do
         script="${entry%%:*}"
         expected="${entry#*:}"
+        normalized_expected="$(printf '%s' "$expected" | sed 's/^0*//')"
         full_path="$SCRIPT_DIR/$script"
+        [ -n "$normalized_expected" ] || normalized_expected="0"
         
         if [ -f "$full_path" ]; then
             perms=$(stat -c "%a" "$full_path" 2>/dev/null || stat -f "%Lp" "$full_path" 2>/dev/null)
-            if [ "$perms" = "$expected" ]; then
+            if [ "$perms" = "$normalized_expected" ]; then
                 pass "Permissions OK: $script ($perms)"
             else
                 warn "Permissions (will be fixed on install): $script (expected $expected, got $perms)"
@@ -321,9 +469,12 @@ main() {
     test_permissions
     test_subscription_parser
     test_network_monitor
+    test_vpn_start
     test_app_filter
     test_vpn_config
     test_xray_config
+    test_runtime_config
+    test_category_references
     
     # Summary
     header "Test Summary"

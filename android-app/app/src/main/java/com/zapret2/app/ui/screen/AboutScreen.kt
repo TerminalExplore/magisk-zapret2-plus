@@ -13,12 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.zapret2.app.BuildConfig
 import com.zapret2.app.ui.components.FluentCard
 import com.zapret2.app.ui.theme.*
 
 @Composable
-fun AboutScreen() {
+fun AboutScreen(navController: NavController) {
     val context = LocalContext.current
 
     fun openUrl(url: String) {
@@ -31,6 +32,19 @@ fun AboutScreen() {
             Text("v${BuildConfig.VERSION_NAME}", fontSize = 14.sp, color = TextSecondary)
             Spacer(modifier = Modifier.height(8.dp))
             Text("DPI bypass with auto-switch WiFi/Mobile, VPN support, and app filtering", fontSize = 13.sp, color = TextTertiary)
+        }
+        
+        FluentCard(modifier = Modifier.clickable { navController.navigate("module_manager") }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Extension, null, tint = AccentBlue)
+                Spacer(Modifier.width(12.dp))
+                Column { 
+                    Text("Module Manager", color = TextPrimary) 
+                    Text("Install/Update Magisk module", fontSize = 12.sp, color = TextSecondary) 
+                }
+                Spacer(Modifier.weight(1f))
+                Icon(Icons.Default.ChevronRight, null, tint = TextSecondary)
+            }
         }
 
         FluentCard(modifier = Modifier.clickable { openUrl("https://github.com/TerminalExplore") }) {
