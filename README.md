@@ -1,3 +1,4 @@
+![Zapret2 Plus](images/zapret2.png)
 # Zapret2 Plus — Magisk Module
 
 Модуль для обхода DPI-блокировок на Android с поддержкой VPN, гибким управлением режимами сети и companion-приложением.
