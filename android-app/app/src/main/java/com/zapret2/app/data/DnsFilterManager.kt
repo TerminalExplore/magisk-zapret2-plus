@@ -132,7 +132,7 @@ class DnsFilterManager @Inject constructor() {
 
     private fun getInstalledPackages(): Set<String> {
         val result = Shell.cmd("pm list packages").exec()
-        result.out.mapNotNull { line ->
+        return result.out.mapNotNull { line ->
             line.removePrefix("package:").trim().takeIf { it.isNotEmpty() }
         }.toSet()
     }

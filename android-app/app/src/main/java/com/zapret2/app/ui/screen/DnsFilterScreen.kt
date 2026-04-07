@@ -43,7 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.zapret2.app.data.DnsFilterManager
-import com.zapret2.app.ui.theme.Primary
+import com.zapret2.app.ui.theme.AccentPrimary
 import com.zapret2.app.ui.theme.TextSecondary
 import com.zapret2.app.viewmodel.DnsFilterViewModel
 
@@ -224,7 +224,7 @@ fun AppDnsItem(
                     Icon(
                         imageVector = Icons.Default.Cloud,
                         contentDescription = null,
-                        tint = Primary
+                        tint = AccentPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     DnsServerSelector(
