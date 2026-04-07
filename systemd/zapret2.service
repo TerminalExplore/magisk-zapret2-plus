@@ -1,0 +1,46 @@
+# Zapret2 systemd service for Linux
+# Install: sudo cp zapret2.service /etc/systemd/system/
+# Reload: sudo systemctl daemon-reload
+# Enable: sudo systemctl enable zapret2
+# Start:  sudo systemctl start zapret2
+
+[Unit]
+Description=Zapret2 DPI Bypass Service
+After=network-online.target
+Wants=network-online.target
+Documentation=https://github.com/TerminalExplore/magisk-zapret2
+
+[Service]
+Type=simple
+ExecStart=/opt/zapret2/zapret2.sh start
+ExecStop=/opt/zapret2/zapret2.sh stop
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+User=nobody
+Group=nogroup
+AmbientCapabilities=CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_ADMIN
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=false
+ReadWritePaths=/opt/zapret2
+
+# Allow binding to port 80/443
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zapret2
+
+# Environment
+Environment=ZAPRET_DIR=/opt/zapret2
+Environment=LOG_LEVEL=info
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
