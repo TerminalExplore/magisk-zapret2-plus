@@ -8,6 +8,15 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Create draft release (do not publish)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: write
@@ -474,13 +483,28 @@ jobs:
           path: zapret2-control-*.apk
 
       - name: Create Tag and Release
+        if: github.event.inputs.draft != 'true'
         run: |
           VERSION_TAG="${{ needs.prepare-version.outputs.version_tag }}"
 
-          # Create release (tag is created automatically if missing)
           gh release create "$VERSION_TAG" \
             --target "$GITHUB_SHA" \
             --title "Zapret2 $VERSION_TAG" \
+            --generate-notes \
+            zapret2-magisk-*.zip \
+            zapret2-control-*.apk \
+            update.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Upload Draft Release Assets
+        if: github.event.inputs.draft == 'true'
+        run: |
+          VERSION_TAG="${{ needs.prepare-version.outputs.version_tag }}"
+          gh release create "$VERSION_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "Zapret2 $VERSION_TAG (Draft)" \
+            --draft \
             --generate-notes \
             zapret2-magisk-*.zip \
             zapret2-control-*.apk \

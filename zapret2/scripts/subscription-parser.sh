@@ -533,33 +533,54 @@ apply_env_config() {
     log "Generated direct VPN config from $config_file"
 }
 
-fetch_subscription() {
+fetch_with_retry() {
     local url="$1"
-    local curl_output curl_error
+    local max_attempts="${2:-3}"
+    local attempt=1
+    local response=""
+    local status=1
 
-    if command -v curl >/dev/null 2>&1; then
-        log "Using curl for fetch"
-        curl_error=$(curl -fsSL --connect-timeout 15 --max-time 30 \
-            -H "User-Agent: Mozilla/5.0 (Android 14)" \
-            -H "Accept: */*" \
-            "$url" 2>&1)
-        if [ $? -eq 0 ]; then
-            printf '%s' "$curl_error"
-            return 0
+    while [ $attempt -le $max_attempts ]; do
+        log "Fetch attempt $attempt/$max_attempts"
+        
+        if command -v curl >/dev/null 2>&1; then
+            log "Using curl for fetch"
+            response=$(curl -fsSL --connect-timeout 15 --max-time 30 \
+                -H "User-Agent: Mozilla/5.0 (Android 14)" \
+                -H "Accept: */*" \
+                "$url" 2>&1)
+            status=$?
+        elif command -v wget >/dev/null 2>&1; then
+            log "Using wget for fetch"
+            response=$(wget -qO- --timeout=30 "$url" 2>/dev/null)
+            status=$?
         else
-            log "curl error: $curl_error"
+            log "Neither curl nor wget available"
             return 1
         fi
-    fi
 
-    if command -v wget >/dev/null 2>&1; then
-        log "Using wget for fetch"
-        wget -qO- --timeout=30 "$url" 2>/dev/null
-        return $?
-    fi
+        if [ $status -eq 0 ] && [ -n "$response" ]; then
+            printf '%s' "$response"
+            log "Fetch successful on attempt $attempt"
+            return 0
+        fi
 
-    log "Neither curl nor wget available"
+        log "Fetch failed (attempt $attempt): status=$status"
+        attempt=$((attempt + 1))
+        
+        if [ $attempt -le $max_attempts ]; then
+            log "Retrying in 5 seconds..."
+            sleep 5
+        fi
+    done
+
+    log "All $max_attempts fetch attempts failed"
     return 1
+}
+
+fetch_subscription() {
+    local url="$1"
+    fetch_with_retry "$url" 3
 }
 
 import_subscription() {

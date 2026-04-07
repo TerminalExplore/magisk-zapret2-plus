@@ -51,6 +51,7 @@ fun VpnSettingsScreen(
     var autoSelectFastest by remember { mutableStateOf(false) }
     var vpnLog by remember { mutableStateOf("No log entries") }
     var subscriptionLog by remember { mutableStateOf("No log entries") }
+    var verboseLogs by remember { mutableStateOf(false) }
     var externalIp by remember { mutableStateOf<IpInfo?>(null) }
     var ipLoading by remember { mutableStateOf(false) }
     var autoSwitchEnabled by remember { mutableStateOf(false) }
@@ -62,7 +63,7 @@ fun VpnSettingsScreen(
         vpnDetail = runtime.detail
         selectedServerUri = runtime.selectedServerUri ?: selectedServerUri
 
-        val logs = vpnConfigManager.getRecentLogs(24)
+        val logs = vpnConfigManager.getRecentLogs(24, verboseLogs)
         vpnLog = logs.vpnLog
         subscriptionLog = logs.subscriptionLog
     }
@@ -784,7 +785,21 @@ fun VpnSettingsScreen(
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("VPN log", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("VPN log", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Verbose", style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.width(4.dp))
+                        Switch(checked = verboseLogs, onCheckedChange = {
+                            verboseLogs = it
+                            scope.launch { refreshStatusAndLogs() }
+                        })
+                    }
+                }
                 Spacer(modifier = Modifier.height(6.dp))
                 LogBlock(text = vpnLog)
                 Spacer(modifier = Modifier.height(12.dp))
