@@ -236,6 +236,28 @@ test_app_filter() {
 }
 
 ##########################################################################################
+# Test: dns-filter.sh configuration
+##########################################################################################
+test_dns_filter() {
+    header "dns-filter.sh Tests"
+    
+    local script="$SCRIPT_DIR/zapret2/scripts/dns-filter.sh"
+    local config="$SCRIPT_DIR/zapret2/dns-filter.ini"
+    
+    [ -f "$config" ] && pass "dns-filter.ini exists" || fail "dns-filter.ini not found"
+    
+    if [ -f "$script" ]; then
+        bash -n "$script" 2>/dev/null && pass "dns-filter.sh syntax is valid" || fail "dns-filter.sh syntax is invalid"
+        
+        grep -q 'DNAT' "$script" && pass "dns-filter.sh uses DNAT" || fail "dns-filter.sh missing DNAT"
+        grep -q 'uid-owner' "$script" && pass "dns-filter.sh uses uid-owner" || fail "dns-filter.sh missing uid-owner"
+        grep -q 'flush_dns_rules' "$script" && pass "dns-filter.sh has flush function" || fail "dns-filter.sh missing flush"
+    else
+        skip "dns-filter.sh not found"
+    fi
+}
+
+##########################################################################################
 # Test: vpn-config.env format
 ##########################################################################################
 test_vpn_config() {
@@ -471,6 +493,7 @@ main() {
     test_network_monitor
     test_vpn_start
     test_app_filter
+    test_dns_filter
     test_vpn_config
     test_xray_config
     test_runtime_config
