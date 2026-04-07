@@ -12,6 +12,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Hostlists : Screen("hostlists", "Hostlists", Icons.Default.List)
     object HostsEditor : Screen("hosts_editor", "Hosts Editor", Icons.Default.EditNote)
     object DnsManager : Screen("dns_manager", "DNS", Icons.Default.Dns)
+    object DnsFilter : Screen("dns_filter", "Per-App DNS", Icons.Default.Router)
     object Logs : Screen("logs", "Logs", Icons.Default.Terminal)
     object About : Screen("about", "About", Icons.Default.Info)
     
