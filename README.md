@@ -1,48 +1,50 @@
 # Zapret2 Plus — Magisk Module
 
-Модуль для обхода DPI-блокировок на Android с поддержкой VPN, гибким управлением режимами сети и companion-приложением.
+![Logo](images/zapret2.png)
+
+DPI bypass module for Android with VPN support, flexible network mode management, and a companion app.
 
 ---
 
-## Что это?
+## What is it?
 
-Zapret2 Plus — это Magisk-модуль, который запускает [nfqws2](https://github.com/bol-van/zapret) на уровне ядра через iptables/NFQUEUE. Трафик перехватывается без VPN API — быстро, без запроса разрешений и без иконки VPN в статусбаре (если не нужна).
+Zapret2 Plus is a Magisk module that runs [nfqws2](https://github.com/bol-van/zapret) at the kernel level via iptables/NFQUEUE. Traffic is intercepted without VPN API — fast, no permission requests, and no VPN icon in the status bar (if not needed).
 
-Дополнительно встроен Xray для VPN-туннелирования через VLESS/VMess/ShadowSocks/Trojan — с возможностью автоматического переключения между DPI bypass и VPN в зависимости от типа сети.
+Additionally, Xray is built-in for VPN tunneling via VLESS/VMess/ShadowSocks/Trojan — with the ability to automatically switch between DPI bypass and VPN depending on network type.
 
 ---
 
-## Требования
+## Requirements
 
 - Android 7.0+
-- Root (Magisk 20.4+ или KernelSU)
-- Ядро с поддержкой NFQUEUE
+- Root (Magisk 20.4+ or KernelSU)
+- Kernel with NFQUEUE support
 
-Проверить NFQUEUE:
+Check NFQUEUE:
 ```bash
 su -c "[ -f /proc/net/netfilter/nfnetlink_queue ] && echo ok || echo missing"
 ```
 
 ---
 
-## Установка
+## Installation
 
-Скачайте из **[Releases](https://github.com/TerminalExplore/magisk-zapret2-plus/releases)**:
-- `zapret2-magisk-v*.zip` — модуль
-- `zapret2-control-v*.apk` — приложение управления
+Download from **[Releases](https://github.com/TerminalExplore/magisk-zapret2-plus/releases)**:
+- `zapret2-magisk-v*.zip` — module
+- `zapret2-control-v*.apk` — companion app
 
-**Модуль:**
-1. Magisk → Модули → Установить из хранилища → выберите ZIP
-2. Перезагрузите устройство
+**Module:**
+1. Magisk → Modules → Install from storage → select ZIP
+2. Reboot device
 
-**Приложение:**
-1. Установите APK (разрешите установку из неизвестных источников)
+**App:**
+1. Install APK (allow unknown sources)
 
 ---
 
-## Режимы работы
+## Operating Modes
 
-Настраивается через приложение (вкладка VPN → VPN Mode) или вручную в `vpn-config.env`:
+Configure via app (VPN tab → VPN Mode) or manually in `vpn-config.env`:
 
 | VPN_MODE | WiFi | Mobile |
 |----------|------|--------|
@@ -51,90 +53,90 @@ su -c "[ -f /proc/net/netfilter/nfnetlink_queue ] && echo ok || echo missing"
 | `wifi` | VPN | Zapret2 |
 | `always` | VPN | VPN |
 
-По умолчанию `off` — только DPI bypass без VPN.
+Default is `off` — DPI bypass only, no VPN.
 
 ---
 
-## Функции
+## Features
 
 ### DPI Bypass
-- Перехват трафика через iptables NFQUEUE без VPN API
-- Стратегии для YouTube, Discord, Telegram, Rutracker и других
-- Автоподбор стратегий — тестирует реальный доступ к сайтам через zapret2 и выбирает лучшую
-- Поддержка TCP, UDP, STUN протоколов
-- Категории с отдельными стратегиями для каждого сервиса
+- Traffic interception via iptables NFQUEUE without VPN API
+- Strategies for YouTube, Discord, Telegram, Rutracker, and others
+- Auto-select strategies — tests real site access via zapret2 and picks the best
+- TCP, UDP, STUN protocol support
+- Categories with separate strategies for each service
 
 ### VPN
-- Протоколы: VLESS, VMess, ShadowSocks, Trojan
-- Импорт подписок по URL (base64 и plain)
-- Список серверов с параллельным TCP-пингом
-- Автовыбор быстрейшего сервера
-- Внешний IP с флагом страны — для проверки что трафик идёт через VPN
-- Уведомления в статусбаре при активном VPN/Zapret2
+- Protocols: VLESS, VMess, ShadowSocks, Trojan
+- Subscription import by URL (base64 and plain)
+- Server list with parallel TCP ping
+- Auto-select fastest server
+- External IP with country flag — to verify traffic goes through VPN
+- Status bar notifications when VPN/Zapret2 is active
 
 ### App Filter
-- Белый список приложений отдельно для WiFi и Mobile
-- Показывает все установленные приложения с иконками
+- Whitelist of apps separately for WiFi and Mobile
+- Shows all installed apps with icons
 
 ### Auto-Switch
-- Watchdog — автоматически перезапускает упавший сервис
-- Уведомления при переключении режимов
-- Защита от race condition при быстром переключении сетей
+- Watchdog — automatically restarts crashed service
+- Notifications when switching modes
+- Protection against race conditions during fast network switches
 
 ---
 
-## Приложение Zapret2 Control
+## Zapret2 Control App
 
 ### Control
-- Запуск / остановка Zapret2 и VPN
-- Статус, uptime, PID, память
-- Тип сети, iptables статус
-- Проверка обновлений
+- Start / stop Zapret2 and VPN
+- Status, uptime, PID, memory
+- Network type, iptables status
+- Check for updates
 
 ### Strategies
-- Выбор стратегии для каждой категории (YouTube, Discord, и др.)
-- Автоподбор — перебирает стратегии и проверяет реальный доступ
-- Просмотр аргументов nfqws2 для каждой стратегии
-- Изменение порядка стратегий
+- Select strategy for each category (YouTube, Discord, etc.)
+- Auto-select — iterates through strategies and checks real access
+- View nfqws2 arguments for each strategy
+- Reorder strategies
 
 ### VPN
-- Включение VPN и выбор режима (off / mobile / wifi / always)
-- Внешний IP с флагом страны (обновляется автоматически при смене VPN)
-- Импорт подписки (Save & Apply сохраняет URL)
-- Список серверов с пингом, выбор сервера
-- Ручной ввод URI (vless:// vmess:// ss:// trojan://)
-- Настройки пинга: ICMP / TCP, таймаут, автовыбор быстрейшего
+- Enable VPN and select mode (off / mobile / wifi / always)
+- External IP with country flag (auto-updates when VPN changes)
+- Import subscription (Save & Apply saves URL)
+- Server list with ping, server selection
+- Manual URI input (vless:// vmess:// ss:// trojan://)
+- Ping settings: ICMP / TCP, timeout, auto-select fastest
 
 ### App Filter
-- Поиск по приложениям
-- Отдельные списки для WiFi и Mobile
+- Search apps
+- Separate lists for WiFi and Mobile
 
 ### Presets / Strategies / Config
-- Готовые пресеты стратегий
-- Редактор командной строки nfqws2
-- Управление хостлистами
+- Ready-made strategy presets
+- nfqws2 command line editor
+- Hostlist management
 
 ---
 
-## Конфигурация
+## Configuration
 
 ### vpn-config.env
 ```bash
-VPN_ENABLED=1           # Включить VPN
-VPN_MODE="mobile"       # Режим: off / mobile / wifi / always
-VPN_SUBSCRIPTION_URL="" # URL подписки
-VPN_AUTOSTART=1         # Автозапуск VPN при переключении на нужную сеть
-KILL_SWITCH=0           # Блокировать трафик если VPN упал
-PING_METHOD="tcp"       # Метод пинга: icmp / tcp
-PING_TIMEOUT=3          # Таймаут пинга в секундах
+VPN_ENABLED=1           # Enable VPN
+VPN_MODE="mobile"       # Mode: off / mobile / wifi / always
+VPN_SUBSCRIPTION_URL="" # Subscription URL
+VPN_AUTOSTART=1         # Auto-start VPN when switching to target network
+KILL_SWITCH=0          # Block traffic if VPN drops
+PING_METHOD="tcp"      # Ping method: icmp / tcp
+PING_TIMEOUT=3         # Ping timeout in seconds
 ```
 
 ### runtime.ini
-Основные настройки модуля — редактируется через приложение (Control → настройки).
+Core module settings — edited via app (Control → settings).
 
 ---
 
-## Команды терминала
+## Terminal Commands
 
 ```bash
 # Zapret2
@@ -155,44 +157,44 @@ su -c "zapret2-network-monitor stop"
 
 ---
 
-## Обновление
+## Updates
 
-Настройки (`runtime.ini`, `categories.ini`, `vpn-config.env`) автоматически сохраняются при обновлении модуля через Magisk.
+Settings (`runtime.ini`, `categories.ini`, `vpn-config.env`) are automatically preserved when updating module via Magisk.
 
-Обновить через приложение: Control → Check for updates.
+Update via app: Control → Check for updates.
 
-Обновить вручную: установить новый ZIP через Magisk.
+Update manually: install new ZIP via Magisk.
 
 ---
 
-## Решение проблем
+## Troubleshooting
 
-**Сайт не открывается:**
-1. Попробуйте другую стратегию в Strategies → автоподбор
-2. Перезапустите сервис
+**Site not opening:**
+1. Try different strategy in Strategies → auto-select
+2. Restart service
 
-**Модуль не запускается:**
+**Module not starting:**
 ```bash
 su -c zapret2-status
 ```
 
-**VPN не подключается:**
-- Проверьте логи во вкладке VPN → Logs
-- Убедитесь что подписка импортирована и сервер выбран
+**VPN not connecting:**
+- Check logs in VPN tab → Logs
+- Make sure subscription is imported and server is selected
 
-**Конфликт с AdGuard / NetGuard:**
-Отключите их или добавьте Zapret2 в исключения.
-
----
-
-## Благодарности
-
-- [bol-van/zapret](https://github.com/bol-van/zapret) — оригинальный nfqws
-- [youtubediscord/magisk-zapret2](https://github.com/youtubediscord/magisk-zapret2) — Android-порт
-- [XTLS/Xray-core](https://github.com/XTLS/Xray-core) — VPN ядро
+**Conflict with AdGuard / NetGuard:**
+Disable them or add Zapret2 to exceptions.
 
 ---
 
-## Лицензия
+## Acknowledgements
+
+- [bol-van/zapret](https://github.com/bol-van/zapret) — original nfqws
+- [youtubediscord/magisk-zapret2](https://github.com/youtubediscord/magisk-zapret2) — Android port
+- [XTLS/Xray-core](https://github.com/XTLS/Xray-core) — VPN core
+
+---
+
+## License
 
 MIT

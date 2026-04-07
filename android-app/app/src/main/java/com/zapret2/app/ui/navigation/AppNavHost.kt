@@ -26,6 +26,7 @@ fun AppNavHost(
         composable(Screen.Hostlists.route) { HostlistsScreen(navController) }
         composable(Screen.HostsEditor.route) { HostsEditorScreen() }
         composable(Screen.DnsManager.route) { DnsManagerScreen() }
+        composable(Screen.DnsFilter.route) { DnsFilterScreen() }
         composable(Screen.Logs.route) { LogsScreen() }
         composable(Screen.About.route) { AboutScreen(navController) }
         
