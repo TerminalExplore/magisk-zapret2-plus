@@ -253,10 +253,12 @@ class VpnConfigManager {
         )
     }
 
-    suspend fun getRecentLogs(lines: Int = 40): LogSnapshot = withContext(Dispatchers.IO) {
+    suspend fun getRecentLogs(lines: Int = 40, verbose: Boolean = false): LogSnapshot = withContext(Dispatchers.IO) {
+        val vpnLines = if (verbose) lines * 3 else lines
+        val subLines = if (verbose) lines * 3 else lines
         LogSnapshot(
-            vpnLog = readLogTail(VPN_LOG, lines),
-            subscriptionLog = readLogTail(SUBSCRIPTION_LOG, lines)
+            vpnLog = readLogTail(VPN_LOG, vpnLines),
+            subscriptionLog = readLogTail(SUBSCRIPTION_LOG, subLines)
         )
     }
 
